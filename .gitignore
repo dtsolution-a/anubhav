@@ -1,0 +1,13 @@
+# Task tracker - not needed in repo
+task.md
+
+# Node modules if ever added
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local env
+.env
+.env.local
