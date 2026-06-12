@@ -146,7 +146,10 @@ function navigate(path) {
 }
 
 window.addEventListener('hashchange', render);
-window.addEventListener('DOMContentLoaded', render);
+window.addEventListener('DOMContentLoaded', () => {
+  render();
+  checkMobileHint();
+});
 
 function render() {
   const route = getRoute();
@@ -534,7 +537,14 @@ function renderAgencyWorkspace(app, id) {
           <span class="exp-centre-badge"><span class="badge-dot"></span>Workspace</span>
         </div>
 
-        <!-- Stats (Active + Delivered only) -->
+        <!-- Mobile Top Bar (shows on tablet/phone instead of sidebar) -->
+      <div class="workspace-mobile-bar">
+        <div class="mobile-bar-brand">
+          <div class="mobile-bar-logo">${brand.logoText}</div>
+          <span class="mobile-bar-name">${brand.name}</span>
+        </div>
+        <button class="mobile-bar-exit" onclick="navigateBack()">Exit ✕</button>
+      </div>
         <div class="stats-row animate-in" style="animation-delay:0.1s">
           <div class="stat-card">
             <div class="stat-icon" style="background:${brand.accentLight};color:${brand.accentColor}">
@@ -639,7 +649,39 @@ function copyToClipboard(text, el) {
 
 function escStr(s) { return s.replace(/'/g, "\\'"); }
 
-// ESC key closes modals
+// ── MOBILE HINT BANNER ──────────────────────────────────────────
+
+function checkMobileHint() {
+  const isMobile = window.innerWidth <= 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) return;
+  if (localStorage.getItem('anx_mob_ok')) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'mobile-hint';
+  banner.className = 'mobile-hint-banner';
+  banner.innerHTML = `
+    <div class="mobile-hint-inner">
+      <div class="mobile-hint-icon">💻</div>
+      <div class="mobile-hint-text">
+        <strong>Best viewed on Desktop</strong>
+        <p>For the full experience, we recommend opening this on a laptop or desktop browser.</p>
+      </div>
+      <button class="mobile-hint-dismiss" onclick="dismissMobileHint()">Got it</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+  // Slight delay so animation plays
+  setTimeout(() => banner.classList.add('visible'), 100);
+}
+
+function dismissMobileHint() {
+  const banner = document.getElementById('mobile-hint');
+  if (banner) {
+    banner.classList.remove('visible');
+    setTimeout(() => banner.remove(), 400);
+  }
+  localStorage.setItem('anx_mob_ok', '1');
+}
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeExpFullscreen();
