@@ -3,6 +3,21 @@
 //  All data hardcoded as per initial build phase
 // ============================================================
 
+// ── SESSION MANAGEMENT (ID never goes in URL) ────────────────
+const _SID = 'anx_s'; // obscure key name
+
+function _setSession(id) {
+  try { sessionStorage.setItem(_SID, btoa(id)); } catch(e) {}
+}
+
+function _getSession() {
+  try { const v = sessionStorage.getItem(_SID); return v ? atob(v) : null; } catch(e) { return null; }
+}
+
+function _clearSession() {
+  try { sessionStorage.removeItem(_SID); } catch(e) {}
+}
+
 // ── DEVICE CONFIGURATIONS ────────────────────────────────────
 const DEVICES = [
   { id: 'desktop',     label: 'Desktop',       icon: 'monitor', frameClass: 'device-desktop' },
@@ -139,14 +154,30 @@ function render() {
 
   if (route === '/' || route === '') {
     renderLanding(app);
-  } else if (route.startsWith('/experience/')) {
-    const id = route.split('/experience/')[1];
+
+  } else if (route === '/experience') {
+    // Validate session — no direct URL access allowed
+    const id = _getSession();
+    if (!id || !ID_REGISTRY[id] || ID_REGISTRY[id].type !== 'client') {
+      _clearSession();
+      navigate('/');
+      return;
+    }
     renderClientExperience(app, id);
-  } else if (route.startsWith('/workspace/')) {
-    const id = route.split('/workspace/')[1];
+
+  } else if (route === '/workspace') {
+    // Validate session — no direct URL access allowed
+    const id = _getSession();
+    if (!id || !ID_REGISTRY[id] || ID_REGISTRY[id].type !== 'agency') {
+      _clearSession();
+      navigate('/');
+      return;
+    }
     renderAgencyWorkspace(app, id);
+
   } else {
-    renderNotFound(app);
+    // Any unknown route → back to landing
+    navigate('/');
   }
 }
 
@@ -221,15 +252,21 @@ function handleIdSubmit() {
   const entry = ID_REGISTRY[id];
   if (!entry) { showLandingError(errorEl, errorMsg, 'Invalid ID. Please check and try again.'); shakeInput(input); return; }
 
+  // Store ID in session — NEVER put it in the URL
+  _setSession(id);
+
   document.querySelector('.landing-content').classList.add('animate-out');
   setTimeout(() => {
-    if (entry.type === 'client') navigate(`/experience/${id}`);
-    else if (entry.type === 'agency') navigate(`/workspace/${id}`);
+    if (entry.type === 'client') navigate('/experience');
+    else if (entry.type === 'agency') navigate('/workspace');
   }, 380);
 }
 
 function showLandingError(el, msgEl, msg) { msgEl.textContent = msg; el.style.display = 'flex'; }
 function shakeInput(input) { input.classList.add('shake'); setTimeout(() => input.classList.remove('shake'), 500); }
+
+// Safe back navigation — clears session
+function navigateBack() { _clearSession(); navigate('/'); }
 
 // ── CLIENT EXPERIENCE PAGE ───────────────────────────────────
 
@@ -348,7 +385,7 @@ function renderClientExperience(app, id) {
         <span>Powered by</span>
         <span class="footer-anubhavah">अनुभवः</span>
         <span class="footer-dot">·</span>
-        <button class="back-btn" onclick="navigate('/')">← Back</button>
+        <button class="back-btn" onclick="navigateBack()">← Back</button>
       </footer>
     </div>
 
@@ -483,7 +520,7 @@ function renderAgencyWorkspace(app, id) {
           <span>Powered by</span>
           <span class="sidebar-anubhavah">अनुभवः</span>
         </div>
-        <button class="sidebar-back-btn" onclick="navigate('/')">← Exit</button>
+        <button class="sidebar-back-btn" onclick="navigateBack()">← Exit</button>
       </aside>
 
       <!-- Main -->
