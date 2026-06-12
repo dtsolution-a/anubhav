@@ -177,7 +177,7 @@ function renderLanding(app) {
               type="text"
               id="experience-id-input"
               class="id-input"
-              placeholder="e.g. CL22MDL"
+              placeholder="e.g. EXP-2025-XX"
               autocomplete="off"
               spellcheck="false"
               maxlength="10"
