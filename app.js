@@ -88,12 +88,20 @@ const ID_REGISTRY = {
     previewLabel: 'BBM — Website Preview',
     isActive: true, // under dev → no URL, no Open Live
   },
+  CL32SHAH: {
+    type: 'client',
+    entityName: 'Shah',
+    ownerBrand: BRANDS.medialoop,
+    previewUrl: 'https://shah-omega.vercel.app/',
+    previewLabel: 'Shah — Website Preview',
+    isActive: true, // under dev → no URL, no Open Live
+  },
 
   // ── AGENCY IDs ─────────────────────────────────────────────
   AG23MDL: {
     type: 'agency',
     agencyBrand: BRANDS.medialoop,
-    stats: { active: 1, delivered: 2 },
+    stats: { active: 2, delivered: 2 },
     projects: [
       {
         id: 'proj_bbm',
@@ -102,6 +110,18 @@ const ID_REGISTRY = {
         clientId: 'CL31BBM',
         previewUrl: 'https://bbm-eight.vercel.app/',
         previewLabel: 'BBM — In Development',
+        status: 'active',
+        description: 'Digital brand identity & full website — currently in active development phase',
+        deliveredOn: null,
+        isActive: true,
+      },
+      {
+        id: 'proj_shah',
+        clientName: 'Shah Engineering',
+        clientInitials: 'Shah',
+        clientId: 'CL32SHAH',
+        previewUrl: 'https://shah-omega.vercel.app/',
+        previewLabel: 'Shah — In Development',
         status: 'active',
         description: 'Digital brand identity & full website — currently in active development phase',
         deliveredOn: null,
