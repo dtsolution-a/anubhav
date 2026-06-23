@@ -92,7 +92,7 @@ const ID_REGISTRY = {
     type: 'client',
     entityName: 'Shah',
     ownerBrand: BRANDS.medialoop,
-    previewUrl: 'https://shah-omega.vercel.app/',
+    previewUrl: 'https://shahgroup.co/',
     previewLabel: 'Shah — Website Preview',
     isActive: true, // under dev → no URL, no Open Live
   },
@@ -120,7 +120,7 @@ const ID_REGISTRY = {
         clientName: 'Shah Engineering',
         clientInitials: 'Shah',
         clientId: 'CL32SHAH',
-        previewUrl: 'https://shah-omega.vercel.app/',
+        previewUrl: 'https://shahgroup.co/',
         previewLabel: 'Shah — In Development',
         status: 'active',
         description: 'Digital brand identity & full website — currently in active development phase',
