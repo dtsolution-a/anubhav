@@ -25,6 +25,14 @@ export default function ProjectDetail({ params }) {
   const [revisionDesc, setRevisionDesc]   = useState('');
   const [revisionImg, setRevisionImg]     = useState('');
   const [expandedRevisionId, setExpandedRevisionId] = useState(null);
+
+  // ── Role display label (no "owner" label shown) ─────────────────────────────
+  const roleLabel = (type) => {
+    if (type === 'owner')  return 'DT Solution';
+    if (type === 'client') return 'Client';
+    return 'Agency';
+  };
+
   const [replyTexts, setReplyTexts] = useState({});   // per-revision reply text
   const [sendingReply, setSendingReply] = useState(false);
 
@@ -525,7 +533,7 @@ export default function ProjectDetail({ params }) {
                                   <div className="chat-meta" style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.3rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
                                     <span style={{ fontWeight:600, color }}>{msg.authorName}</span>
                                     <span style={{ color:'var(--bg-border-h)' }}>·</span>
-                                    <span style={{ textTransform:'capitalize' }}>{msg.authorType}</span>
+                                    <span>{roleLabel(msg.authorType)}</span>
                                     {isValid && (
                                       <>
                                         <span style={{ color:'var(--bg-border-h)' }}>·</span>

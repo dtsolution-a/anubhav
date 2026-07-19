@@ -3,6 +3,40 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+function AdminSidebar({ active, onLogout }) {
+  const navItems = [
+    { href: '/admin',          label: 'Dashboard',     icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+    { href: '/admin/projects', label: 'Projects',      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+    { href: '/admin/orgs',     label: 'Organizations', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+  ];
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-mark" style={{ background: 'linear-gradient(135deg,#FF7035,#FF9F00)', color: '#000', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>DT</div>
+        <div>
+          <div className="sidebar-brand-name">DT Solution</div>
+          <div className="sidebar-brand-sub">Owner Portal</div>
+        </div>
+      </div>
+      <nav className="sidebar-nav">
+        {navItems.map(item => (
+          <Link key={item.href} href={item.href} className={`sidebar-nav-item ${active === item.label ? 'active' : ''}`}>
+            {item.icon}{item.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="sidebar-spacer" />
+      <div className="sidebar-footer">
+        <div style={{ fontFamily: 'Noto Sans Devanagari', fontSize: '0.9rem', color: 'var(--accent)', marginBottom: '0.5rem' }}>अनुभवः</div>
+        <button onClick={onLogout} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 export default function AdminProjects() {
   const router = useRouter();
   const [projects, setProjects] = useState([]);
@@ -85,22 +119,7 @@ export default function AdminProjects() {
 
   return (
     <div className="sidebar-layout"><div className="bg-grid" />
-      <aside className="sidebar">
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-mark">DTS</div>
-          <div className="sidebar-brand-name">Anubhavah</div>
-        </div>
-        <nav className="sidebar-nav">
-          <Link href="/admin" className="sidebar-nav-item">Dashboard</Link>
-          <Link href="/admin/projects" className="sidebar-nav-item active">Projects</Link>
-          <Link href="/admin/orgs" className="sidebar-nav-item">Organizations</Link>
-        </nav>
-        <div className="sidebar-spacer"></div>
-        <div className="sidebar-footer">
-          <div style={{ color: 'var(--text-muted)', marginBottom: '10px' }}>अनुभवः</div>
-          <button onClick={handleLogout} className="btn-danger">Logout</button>
-        </div>
-      </aside>
+      <AdminSidebar active="Projects" onLogout={handleLogout} />
       
       <main className="main-content">
         {toast && (

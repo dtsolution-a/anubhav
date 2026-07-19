@@ -3,6 +3,41 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// ── Shared Admin Sidebar ────────────────────────────────────────────────────
+function AdminSidebar({ active, onLogout }) {
+  const navItems = [
+    { href: '/admin',          label: 'Dashboard',      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> },
+    { href: '/admin/projects', label: 'Projects',       icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> },
+    { href: '/admin/orgs',     label: 'Organizations',  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+  ];
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <div className="sidebar-logo-mark" style={{ background: 'linear-gradient(135deg,#FF7035,#FF9F00)', color: '#000', fontSize: '0.75rem', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>DT</div>
+        <div>
+          <div className="sidebar-brand-name">DT Solution</div>
+          <div className="sidebar-brand-sub">Owner Portal</div>
+        </div>
+      </div>
+      <nav className="sidebar-nav">
+        {navItems.map(item => (
+          <Link key={item.href} href={item.href} className={`sidebar-nav-item ${active === item.label ? 'active' : ''}`}>
+            {item.icon}{item.label}
+          </Link>
+        ))}
+      </nav>
+      <div className="sidebar-spacer" />
+      <div className="sidebar-footer">
+        <div style={{ fontFamily: 'Noto Sans Devanagari', fontSize: '0.9rem', color: 'var(--accent)', marginBottom: '0.5rem' }}>अनुभवः</div>
+        <button onClick={onLogout} className="btn-ghost" style={{ width: '100%', justifyContent: 'flex-start' }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Logout
+        </button>
+      </div>
+    </aside>
+  );
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const [stats, setStats] = useState({ projects: 0, activeProjects: 0, openRevisions: 0, orgs: 0 });
@@ -17,15 +52,14 @@ export default function AdminDashboard() {
           fetch('/api/revisions?status=open').catch(() => ({ json: () => [] })),
           fetch('/api/orgs').catch(() => ({ json: () => [] }))
         ]);
-        const projects = await projectsRes.json() || [];
+        const projects  = await projectsRes.json() || [];
         const revisions = await revsRes.json() || [];
-        const orgs = await orgsRes.json() || [];
-
+        const orgs      = await orgsRes.json() || [];
         setStats({
-          projects: projects.length || 0,
-          activeProjects: projects.filter((p) => p.status === 'active').length || 0,
-          openRevisions: revisions.length || 0,
-          orgs: orgs.length || 0,
+          projects:       projects.length  || 0,
+          activeProjects: projects.filter(p => p.status === 'active').length || 0,
+          openRevisions:  revisions.length || 0,
+          orgs:           orgs.length      || 0,
         });
         setRecentRevisions(revisions.slice(0, 5));
       } catch (err) {
@@ -38,71 +72,69 @@ export default function AdminDashboard() {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Logout failed', err);
-    }
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
   };
 
+  const statCards = [
+    { label: 'Total Projects',  value: stats.projects,       icon: '📁', color: 'rgba(255,255,255,0.04)' },
+    { label: 'Active Projects', value: stats.activeProjects,  icon: '⚡', color: 'rgba(251,191,36,0.06)'  },
+    { label: 'Open Revisions',  value: stats.openRevisions,   icon: '💬', color: 'rgba(255,112,53,0.06)'  },
+    { label: 'Total Orgs',      value: stats.orgs,            icon: '🏢', color: 'rgba(74,222,128,0.06)'  },
+  ];
+
   return (
-    <div className="sidebar-layout"><div className="bg-grid" />
-      <aside className="sidebar">
-        <div className="sidebar-logo">
-          <div className="sidebar-logo-mark">DTS</div>
-          <div className="sidebar-brand-name">Anubhavah</div>
-        </div>
-        <nav className="sidebar-nav">
-          <Link href="/admin" className="sidebar-nav-item active">Dashboard</Link>
-          <Link href="/admin/projects" className="sidebar-nav-item">Projects</Link>
-          <Link href="/admin/orgs" className="sidebar-nav-item">Organizations</Link>
-        </nav>
-        <div className="sidebar-spacer"></div>
-        <div className="sidebar-footer">
-          <div style={{ color: 'var(--text-muted)', marginBottom: '10px' }}>अनुभवः</div>
-          <button onClick={handleLogout} className="btn-danger">Logout</button>
-        </div>
-      </aside>
-      
+    <div className="sidebar-layout">
+      <div className="bg-grid" />
+      <AdminSidebar active="Dashboard" onLogout={handleLogout} />
+
       <main className="main-content">
-        <div className="page-header">
-          <div>
-            <h1 className="page-title">Admin Dashboard</h1>
-            <p className="page-sub">Overview of your operations</p>
+        <div className="glow-orb" style={{ width: 400, height: 200, top: '-5%', left: '50%', background: 'var(--accent-glow)' }} />
+
+        <header style={{ marginBottom: '2.5rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--bg-border)' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <p style={{ fontSize: '0.78rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Owner Portal</p>
+              <h1 className="page-title">Admin Dashboard</h1>
+              <p className="page-sub" style={{ marginTop: '0.35rem' }}>Overview of all projects, revisions, and organizations.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button onClick={() => router.push('/admin/projects?action=new')} className="btn-primary">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                New Project
+              </button>
+              <button onClick={() => router.push('/admin/orgs?action=new')} className="btn-ghost">New Organization</button>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => router.push('/admin/projects?action=new')} className="btn-primary">New Project</button>
-            <button onClick={() => router.push('/admin/orgs?action=new')} className="btn-ghost">New Organization</button>
-          </div>
-        </div>
+        </header>
 
         {loading ? (
-          <div className="spinner"></div>
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+            <div className="spinner" style={{ width: 36, height: 36 }} />
+          </div>
         ) : (
           <>
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-label">Total Projects</div>
-                <div className="stat-value">{stats.projects}</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Active Projects</div>
-                <div className="stat-value">{stats.activeProjects}</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Open Revisions</div>
-                <div className="stat-value">{stats.openRevisions}</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-label">Total Orgs</div>
-                <div className="stat-value">{stats.orgs}</div>
-              </div>
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px,1fr))', gap: '1rem', marginBottom: '3rem' }}>
+              {statCards.map((s, i) => (
+                <div key={i}
+                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-lg)', padding: '1.4rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.6rem', transition: 'border-color 0.2s, transform 0.2s', position: 'relative', overflow: 'hidden', cursor: 'default' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--bg-border-h)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-border)';   e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                  <div style={{ position: 'absolute', inset: 0, background: s.color, borderRadius: 'inherit', pointerEvents: 'none' }} />
+                  <div style={{ fontSize: '1.25rem', position: 'relative' }}>{s.icon}</div>
+                  <div style={{ fontFamily: 'var(--font-head)', fontSize: '2rem', fontWeight: 800, lineHeight: 1, position: 'relative' }}>{s.value}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', position: 'relative' }}>{s.label}</div>
+                </div>
+              ))}
             </div>
 
-            <div className="card" style={{ marginTop: '20px' }}>
-              <div className="section-header">
-                <h2 className="section-title">Recent Open Revisions</h2>
+            {/* Recent Revisions */}
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h2 className="section-title" style={{ margin: 0 }}>Recent Open Revisions</h2>
+                <span className="section-count">{recentRevisions.length}</span>
               </div>
               <table className="data-table">
                 <thead>
@@ -116,23 +148,25 @@ export default function AdminDashboard() {
                 </thead>
                 <tbody>
                   {recentRevisions.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="empty-state">No open revisions found.</td>
-                    </tr>
+                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>No open revisions found.</td></tr>
                   ) : (
-                    recentRevisions.map(rev => (
-                      <tr key={rev.id || rev._id}>
-                        <td>{typeof rev.projectId === 'object' && rev.projectId !== null ? rev.projectId.title : (rev.projectTitle || rev.projectId)}</td>
-                        <td>{rev.raisedByName || rev.raisedBy || '-'}</td>
-                        <td><span className="badge badge-open">{rev.status || 'open'}</span></td>
-                        <td>{new Date(rev.createdAt).toLocaleDateString()}</td>
-                        <td>
-                          <Link href={`/admin/projects/${typeof rev.projectId === 'object' && rev.projectId !== null ? (rev.projectId._id || rev.projectId.id) : rev.projectId}?tab=revisions`} className="accent-text">
-                            View
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+                    recentRevisions.map(rev => {
+                      const projId = typeof rev.projectId === 'object' && rev.projectId !== null
+                        ? (rev.projectId._id || rev.projectId.id) : rev.projectId;
+                      const projTitle = typeof rev.projectId === 'object' && rev.projectId !== null
+                        ? rev.projectId.title : (rev.projectTitle || rev.projectId);
+                      return (
+                        <tr key={rev.id || rev._id}>
+                          <td style={{ fontWeight: 500 }}>{projTitle}</td>
+                          <td style={{ color: 'var(--text-muted)' }}>{rev.raisedByName || rev.raisedBy || '—'}</td>
+                          <td><span className="badge badge-open">{rev.status || 'open'}</span></td>
+                          <td style={{ color: 'var(--text-muted)', fontSize: '0.83rem' }}>{new Date(rev.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                          <td>
+                            <Link href={`/admin/projects/${projId}?tab=revisions`} style={{ color: 'var(--accent)', fontSize: '0.83rem', fontWeight: 600 }}>View →</Link>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

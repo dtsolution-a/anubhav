@@ -22,9 +22,9 @@ export async function POST(request) {
         owner = await Organization.create({
           code: upperCode,
           type: 'owner',
-          name: 'DTS Media',
+          name: 'DT Solution',
           branding: {
-            logoText: 'DTS',
+            logoText: 'DT',
             accentColor: '#FF7035',
             accentSecondary: '#FF9F00',
             bgBase: '#0a0807',
