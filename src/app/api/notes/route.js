@@ -19,7 +19,7 @@ export async function GET(request) {
   await connectDB();
   const org = await Organization.findById(session.orgId).lean();
   const note = await Note.findOne({ projectId, orgId: org._id }).lean();
-  return NextResponse.json({ entries: note?.entries || [] });
+  return NextResponse.json(note?.entries || []);
 }
 
 // POST — add a note entry
@@ -44,7 +44,7 @@ export async function POST(request) {
     { upsert: true, new: true }
   ).lean();
 
-  return NextResponse.json({ entries: note.entries }, { status: 201 });
+  return NextResponse.json(note.entries, { status: 201 });
 }
 
 // DELETE — remove a note entry by entry _id
@@ -64,5 +64,5 @@ export async function DELETE(request) {
     { new: true }
   ).lean();
 
-  return NextResponse.json({ entries: note?.entries || [] });
+  return NextResponse.json(note?.entries || []);
 }

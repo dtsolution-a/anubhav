@@ -26,7 +26,7 @@ export async function GET() {
     .sort({ createdAt: -1 })
     .lean();
 
-  return NextResponse.json({ projects });
+  return NextResponse.json(projects);
 }
 
 // POST — create project (owner only)

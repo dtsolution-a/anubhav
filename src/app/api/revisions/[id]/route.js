@@ -15,7 +15,7 @@ export async function GET(_, { params }) {
     .populate('raisedByOrgId', 'name')
     .lean();
   if (!revision) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ revision });
+  return NextResponse.json(revision);
 }
 
 // PUT — reply to thread OR change status
@@ -46,7 +46,7 @@ export async function PUT(request, { params }) {
       revision.status = 'in-progress';
     }
     await revision.save();
-    return NextResponse.json({ revision: revision.toObject() });
+    return NextResponse.json(revision.toObject());
   }
 
   // Change status (agency or owner can resolve/close)
@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
       revision.resolvedAt = new Date();
     }
     await revision.save();
-    return NextResponse.json({ revision: revision.toObject() });
+    return NextResponse.json(revision.toObject());
   }
 
   return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });

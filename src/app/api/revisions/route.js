@@ -41,7 +41,7 @@ export async function GET(request) {
     .sort({ createdAt: -1 })
     .lean();
 
-  return NextResponse.json({ revisions });
+  return NextResponse.json(revisions);
 }
 
 // POST — raise a new revision
@@ -83,5 +83,5 @@ export async function POST(request) {
     }],
   });
 
-  return NextResponse.json({ revision }, { status: 201 });
+  return NextResponse.json(revision, { status: 201 });
 }

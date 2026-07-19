@@ -11,7 +11,7 @@ export async function GET() {
   }
   await connectDB();
   const orgs = await Organization.find({}).sort({ createdAt: -1 }).lean();
-  return NextResponse.json({ orgs });
+  return NextResponse.json(orgs);
 }
 
 // POST — create a new org (owner only)
