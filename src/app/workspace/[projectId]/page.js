@@ -1,147 +1,163 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 
 export default function ProjectDetail({ params }) {
   const { projectId } = params;
-  
-  const [session, setSession] = useState(null);
-  const [project, setProject] = useState(null);
-  const [revisions, setRevisions] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  
-  const [activeTab, setActiveTab] = useState('preview');
-  
-  // Preview State
-  const [deviceFrame, setDeviceFrame] = useState('desktop');
+
+  const [session, setSession]       = useState(null);
+  const [project, setProject]       = useState(null);
+  const [revisions, setRevisions]   = useState([]);
+  const [notes, setNotes]           = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+
+  const [activeTab, setActiveTab]   = useState('preview');
+
+  // Preview
+  const [deviceFrame, setDeviceFrame]   = useState('desktop');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
-  // Revision State
+
+  // Revision state
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
   const [revisionTitle, setRevisionTitle] = useState('');
-  const [revisionDesc, setRevisionDesc] = useState('');
-  const [revisionImg, setRevisionImg] = useState('');
+  const [revisionDesc, setRevisionDesc]   = useState('');
+  const [revisionImg, setRevisionImg]     = useState('');
   const [expandedRevisionId, setExpandedRevisionId] = useState(null);
-  const [replyText, setReplyText] = useState('');
-  
-  // Notes State
+  const [replyTexts, setReplyTexts] = useState({});   // per-revision reply text
+  const [sendingReply, setSendingReply] = useState(false);
+
+  // Notes state
   const [noteLabel, setNoteLabel] = useState('');
   const [noteValue, setNoteValue] = useState('');
-  
-  const fileInputRef = useRef(null);
-  const replyFileInputRef = useRef(null);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const [sessRes, projRes, revRes, notesRes] = await Promise.all([
-          fetch('/api/auth/me'),
-          fetch(`/api/projects/${projectId}`),
-          fetch(`/api/revisions?projectId=${projectId}`),
-          fetch(`/api/notes?projectId=${projectId}`)
-        ]);
+  const fileInputRef      = useRef(null);
+  const chatEndRefs       = useRef({});
 
-        if (!sessRes.ok) throw new Error('Failed to load session');
-        const sess = await sessRes.json();
-        setSession(sess);
+  // ── Fetch all data ──────────────────────────────────────────────
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [sessRes, projRes, revRes, notesRes] = await Promise.all([
+        fetch('/api/auth/me'),
+        fetch(`/api/projects/${projectId}`),
+        fetch(`/api/revisions?projectId=${projectId}`),
+        fetch(`/api/notes?projectId=${projectId}`)
+      ]);
 
-        if (!projRes.ok) throw new Error('Failed to load project');
-        const proj = await projRes.json();
-        setProject(proj);
+      if (!sessRes.ok) throw new Error('Failed to load session');
+      setSession(await sessRes.json());
 
-        if (revRes.ok) {
-          const revs = await revRes.json();
-          setRevisions(revs);
-        }
-        
-        if (notesRes.ok) {
-          const nts = await notesRes.json();
-          setNotes(nts);
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+      if (!projRes.ok) throw new Error('Failed to load project');
+      setProject(await projRes.json());
 
-    if (projectId) {
-      fetchData();
+      if (revRes.ok)   setRevisions(await revRes.json());
+      if (notesRes.ok) setNotes(await notesRes.json());
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }, [projectId]);
 
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Logout failed', err);
+  useEffect(() => {
+    if (projectId) fetchData();
+  }, [projectId, fetchData]);
+
+  // Auto-scroll chat to bottom when expanded revision changes or thread updates
+  useEffect(() => {
+    if (expandedRevisionId && chatEndRefs.current[expandedRevisionId]) {
+      chatEndRefs.current[expandedRevisionId].scrollIntoView({ behavior: 'smooth' });
     }
+  }, [expandedRevisionId, revisions]);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/';
   };
 
   const handleFileChange = (e, setter) => {
     const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        // Mock upload - in reality would POST /api/upload
-        setter(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setter(reader.result);
+    reader.readAsDataURL(file);
   };
 
+  // ── Raise new revision ──────────────────────────────────────────
   const submitRevision = async (e) => {
     e.preventDefault();
     try {
-      // Mocking actual API call since /api/upload is mentioned but /api/revisions takes imageUrl
-      const newRevRes = await fetch('/api/revisions', {
+      const res = await fetch('/api/revisions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          projectId, 
-          title: revisionTitle, 
-          message: revisionDesc, 
-          imageUrl: revisionImg 
-        })
+        body: JSON.stringify({ projectId, title: revisionTitle, message: revisionDesc, imageUrl: revisionImg })
       });
-      if (!newRevRes.ok) throw new Error('Failed to create revision');
-      const newRev = await newRevRes.json();
+      if (!res.ok) throw new Error('Failed to create revision');
+      const newRev = await res.json();
       setRevisions(prev => [newRev, ...prev]);
       setIsRevisionModalOpen(false);
-      setRevisionTitle('');
-      setRevisionDesc('');
-      setRevisionImg('');
+      setRevisionTitle(''); setRevisionDesc(''); setRevisionImg('');
+      setExpandedRevisionId(newRev._id || newRev.id);
     } catch (err) {
-      console.error(err);
       alert('Failed to submit revision');
     }
   };
 
+  // ── Send reply (optimistic update) ─────────────────────────────
   const submitReply = async (revId) => {
-    if (!replyText.trim()) return;
+    const msg = replyTexts[revId]?.trim();
+    if (!msg || sendingReply) return;
+
+    // Optimistic update — add message immediately
+    const optimisticMsg = {
+      _optimistic: true,
+      authorOrgId: session?.orgId,
+      authorType: session?.type,
+      authorName: session?.user?.name || 'Me',
+      message: msg,
+      timestamp: new Date().toISOString(),
+    };
+    setRevisions(prev => prev.map(r => {
+      if ((r._id || r.id) !== revId) return r;
+      return { ...r, thread: [...(r.thread || []), optimisticMsg] };
+    }));
+    setReplyTexts(prev => ({ ...prev, [revId]: '' }));
+    setSendingReply(true);
+
     try {
-      const replyRes = await fetch(`/api/revisions/${revId}`, {
+      const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          _addMessage: { message: replyText, imageUrl: null } // skipping img for reply for brevity
-        })
+        body: JSON.stringify({ _addMessage: { message: msg } })
       });
-      if (!replyRes.ok) throw new Error('Failed to post reply');
-      const updatedRev = await replyRes.json();
+      if (!res.ok) throw new Error();
+      const updatedRev = await res.json();
+      // Replace optimistic with real data
       setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
-      setReplyText('');
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // Revert optimistic update
+      setRevisions(prev => prev.map(r => {
+        if ((r._id || r.id) !== revId) return r;
+        return { ...r, thread: (r.thread || []).filter(m => !m._optimistic) };
+      }));
+      setReplyTexts(prev => ({ ...prev, [revId]: msg }));
       alert('Failed to post reply');
+    } finally {
+      setSendingReply(false);
     }
   };
 
+  // ── Handle Enter to send ────────────────────────────────────────
+  const handleReplyKeyDown = (e, revId) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitReply(revId);
+    }
+  };
+
+  // ── Update revision status ──────────────────────────────────────
   const updateRevisionStatus = async (revId, newStatus) => {
     try {
       const res = await fetch(`/api/revisions/${revId}`, {
@@ -149,15 +165,15 @@ export default function ProjectDetail({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      if (!res.ok) throw new Error('Failed to update status');
+      if (!res.ok) throw new Error();
       const updatedRev = await res.json();
       setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert('Failed to update status');
     }
   };
 
+  // ── Notes ───────────────────────────────────────────────────────
   const submitNote = async (e) => {
     e.preventDefault();
     if (!noteLabel || !noteValue) return;
@@ -167,367 +183,475 @@ export default function ProjectDetail({ params }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, label: noteLabel, value: noteValue })
       });
-      if (!res.ok) throw new Error('Failed to add note');
+      if (!res.ok) throw new Error();
       const newNote = await res.json();
-      setNotes([...notes, newNote]);
-      setNoteLabel('');
-      setNoteValue('');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to add note');
-    }
+      setNotes(prev => [...prev, newNote]);
+      setNoteLabel(''); setNoteValue('');
+    } catch { alert('Failed to add note'); }
   };
 
   const deleteNote = async (entryId) => {
     try {
-      const res = await fetch('/api/notes', {
+      await fetch('/api/notes', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, entryId })
       });
-      if (!res.ok) throw new Error('Failed to delete note');
-      setNotes(notes.filter(n => n.id !== entryId));
-    } catch (err) {
-      console.error(err);
-      alert('Failed to delete note');
-    }
+      setNotes(prev => prev.filter(n => n.id !== entryId));
+    } catch { alert('Failed to delete note'); }
   };
 
   const getDocIcon = (type) => {
-    switch (type?.toLowerCase()) {
-      case 'quotation': return '📄';
-      case 'invoice': return '💰';
-      case 'contract': return '📋';
-      case 'nda': return '🔒';
-      default: return '📎';
-    }
+    const map = { quotation: '📄', invoice: '💰', contract: '📋', nda: '🔒' };
+    return map[type?.toLowerCase()] || '📎';
   };
 
-  if (loading) {
-    return (
-      <div className="sidebar-layout">
-        <div className="main-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="spinner"></div>
-        </div>
-      </div>
-    );
-  }
+  // ── Author color mapping ────────────────────────────────────────
+  const authorColor = (type) => {
+    if (type === 'owner')  return '#FF7035';
+    if (type === 'client') return '#4facfe';
+    return '#a8ff78'; // agency
+  };
 
-  if (error || !project) {
-    return (
-      <div className="sidebar-layout">
-        <div className="main-content">
-          <div className="empty-state">
-            <h3 className="empty-state-title">Error Loading Project</h3>
-            <p className="empty-state-sub">{error || 'Project not found'}</p>
-            <Link href="/workspace" className="btn-primary" style={{ marginTop: '1rem', display: 'inline-block', textDecoration: 'none' }}>Back to Dashboard</Link>
-          </div>
+  // ── Loading / Error states ──────────────────────────────────────
+  if (loading) return (
+    <div className="sidebar-layout">
+      <div className="main-content" style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>
+        <div className="spinner" style={{ width:36, height:36 }} />
+      </div>
+    </div>
+  );
+
+  if (error || !project) return (
+    <div className="sidebar-layout">
+      <div className="main-content">
+        <div className="empty-state">
+          <div className="empty-state-icon">⚠️</div>
+          <h3 className="empty-state-title">Error Loading Project</h3>
+          <p className="empty-state-sub">{error || 'Project not found'}</p>
+          <Link href="/workspace" className="btn-primary" style={{ marginTop:'1.5rem', display:'inline-flex', textDecoration:'none' }}>← Back to Dashboard</Link>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   const branding = session?.org?.branding || { accentColor: '#FF7035', accentSecondary: '#FF9F00' };
 
   return (
-    <div 
-      className="sidebar-layout" 
-      style={{ 
-        '--accent': branding.accentColor, 
-        '--accent-secondary': branding.accentSecondary 
-      }}
-    >
-      <div className="sidebar">
+    <div className="sidebar-layout" style={{ '--accent': branding.accentColor, '--accent-secondary': branding.accentSecondary }}>
+      <div className="bg-grid" />
+
+      {/* ── Sidebar ── */}
+      <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-mark"></div>
+          <div className="sidebar-logo-mark" style={{ background: `linear-gradient(135deg, ${branding.accentColor}, ${branding.accentSecondary})` }}>
+            {(session?.org?.name || 'W').substring(0,2).toUpperCase()}
+          </div>
           <div>
             <div className="sidebar-brand-name">{session?.org?.name || 'Workspace'}</div>
             <div className="sidebar-brand-sub">Agency Portal</div>
           </div>
         </div>
-        
+
         <nav className="sidebar-nav">
-          <Link href="/workspace" className="sidebar-nav-item">Dashboard</Link>
-          <Link href="/workspace" className="sidebar-nav-item">Projects</Link>
-          <Link href="/workspace" className="sidebar-nav-item">Revisions</Link>
+          <Link href="/workspace" className="sidebar-nav-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            Dashboard
+          </Link>
+          <Link href="/workspace" className="sidebar-nav-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Projects
+          </Link>
+          <Link href="/workspace" className="sidebar-nav-item">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Revisions
+          </Link>
         </nav>
-        
-        <div className="sidebar-spacer"></div>
-        
+
+        <div className="sidebar-spacer" />
+
         <div className="sidebar-footer">
-          <div style={{ fontFamily: 'Noto Sans Devanagari', marginBottom: '1rem', color: 'var(--accent)' }}>अनुभवः</div>
-          <button onClick={handleLogout} className="btn-ghost" style={{ width: '100%', textAlign: 'left' }}>
+          <div style={{ fontFamily: 'Noto Sans Devanagari', fontSize:'0.9rem', color:'var(--accent)', marginBottom:'0.5rem' }}>अनुभवः</div>
+          <button onClick={handleLogout} className="btn-ghost" style={{ width:'100%', justifyContent:'flex-start' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
             Logout
           </button>
         </div>
-      </div>
+      </aside>
 
-      <div className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
-        <div className="bg-grid"></div>
-        
-        <div style={{ marginBottom: '1.5rem' }}>
-          <Link href="/workspace" style={{ color: '#888', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
-            <span>&larr;</span> Back to Dashboard
+      {/* ── Main Content ── */}
+      <main className="main-content">
+        {/* Back link */}
+        <div style={{ marginBottom:'1.5rem' }}>
+          <Link href="/workspace" style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', color:'var(--text-muted)', fontSize:'0.83rem', textDecoration:'none', transition:'color 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-muted)'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+            Back to Dashboard
           </Link>
         </div>
 
-        <header className="page-header animate-in" style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        {/* Page Header */}
+        <header style={{ marginBottom:'2rem', paddingBottom:'1.5rem', borderBottom:'1px solid var(--bg-border)' }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'1rem', flexWrap:'wrap' }}>
             <div>
-              <h1 className="page-title" style={{ marginBottom: '0.5rem' }}>{project.title}</h1>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <span className={`badge badge-${project.status.toLowerCase()}`}>{project.status}</span>
-                {project.status === 'delivered' && project.previewUrl && (
-                  <a href={project.previewUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent)', fontSize: '0.9rem', textDecoration: 'none' }}>
-                    Open External &#8599;
+              <h1 className="page-title" style={{ marginBottom:'0.6rem' }}>{project.title}</h1>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
+                <span className={`badge badge-${project.status?.toLowerCase()}`}>{project.status}</span>
+                {project.previewUrl && (
+                  <a href={project.previewUrl} target="_blank" rel="noreferrer"
+                    style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', color:'var(--accent)', fontSize:'0.82rem', textDecoration:'none' }}>
+                    Open Live ↗
                   </a>
                 )}
+                {project.deliveredOn && (
+                  <span style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>Delivered {project.deliveredOn}</span>
+                )}
               </div>
+              {project.description && (
+                <p style={{ marginTop:'0.75rem', fontSize:'0.88rem', color:'var(--text-muted)', maxWidth:'600px', lineHeight:1.6 }}>{project.description}</p>
+              )}
             </div>
           </div>
         </header>
 
-        <div className="tabs-bar animate-in" style={{ animationDelay: '0.1s' }}>
-          <button className={`tab-btn ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => setActiveTab('preview')}>Preview</button>
-          <button className={`tab-btn ${activeTab === 'documents' ? 'active' : ''}`} onClick={() => setActiveTab('documents')}>Documents</button>
-          <button className={`tab-btn ${activeTab === 'revisions' ? 'active' : ''}`} onClick={() => setActiveTab('revisions')}>Revisions</button>
-          <button className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`} onClick={() => setActiveTab('notes')}>Notes</button>
+        {/* Tabs */}
+        <div className="tabs-bar" style={{ marginBottom:'2rem' }}>
+          {[
+            { key:'preview',   label:'Preview',    icon:'🖥' },
+            { key:'documents', label:'Documents',  icon:'📎' },
+            { key:'revisions', label:'Revisions',  icon:'💬', count: revisions.filter(r => r.status === 'open' || r.status === 'in-progress').length },
+            { key:'notes',     label:'Notes',      icon:'🔒' },
+          ].map(tab => (
+            <button
+              key={tab.key}
+              className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => setActiveTab(tab.key)}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+              {tab.count > 0 && (
+                <span style={{ background:'var(--accent)', color:'#000', borderRadius:'100px', padding:'0 0.4rem', fontSize:'0.68rem', fontWeight:700, marginLeft:'0.2rem' }}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }} className="animate-in" style={{ animationDelay: '0.2s', flex: 1, display: 'flex', flexDirection: 'column' }}>
-          
-          {activeTab === 'preview' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="device-bar">
-                <div className="device-opts">
-                  <button className={`device-opt ${deviceFrame === 'desktop' ? 'active' : ''}`} onClick={() => setDeviceFrame('desktop')}>Desktop</button>
-                  <button className={`device-opt ${deviceFrame === 'air' ? 'active' : ''}`} onClick={() => setDeviceFrame('air')}>MacBook Air</button>
-                  <button className={`device-opt ${deviceFrame === 'pro' ? 'active' : ''}`} onClick={() => setDeviceFrame('pro')}>MacBook Pro</button>
-                  <button className={`device-opt ${deviceFrame === 'ipad' ? 'active' : ''}`} onClick={() => setDeviceFrame('ipad')}>iPad</button>
-                  <button className={`device-opt ${deviceFrame === 'iphone' ? 'active' : ''}`} onClick={() => setDeviceFrame('iphone')}>iPhone 16</button>
-                </div>
-                <button className="btn-icon" onClick={() => setIsFullscreen(true)} title="Fullscreen">⛶</button>
+        {/* ── Preview Tab ── */}
+        {activeTab === 'preview' && (
+          <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }} className="animate-in">
+            <div className="device-bar">
+              <div className="device-opts">
+                {[
+                  { id:'desktop', label:'Desktop', icon:'🖥' },
+                  { id:'air',     label:'MacBook Air', icon:'💻' },
+                  { id:'pro',     label:'MacBook Pro', icon:'💻' },
+                  { id:'ipad',    label:'iPad', icon:'📱' },
+                  { id:'iphone',  label:'iPhone', icon:'📱' },
+                ].map(d => (
+                  <button key={d.id} className={`device-opt ${deviceFrame === d.id ? 'active' : ''}`} onClick={() => setDeviceFrame(d.id)}>
+                    <span>{d.icon}</span>{d.label}
+                  </button>
+                ))}
               </div>
-
-              <div className="preview-wrap" style={{ flex: 1, minHeight: '600px' }}>
-                <div className="preview-toolbar">
-                  <div className="toolbar-dots">
-                    <div className="dot dot-r"></div>
-                    <div className="dot dot-y"></div>
-                    <div className="dot dot-g"></div>
-                  </div>
-                  <div className="toolbar-url">
-                    {project.status === 'delivered' ? project.previewUrl || 'about:blank' : 'Preview Mode — Confidential'}
-                  </div>
+              <button className="btn-icon" onClick={() => setIsFullscreen(true)} title="Fullscreen">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              </button>
+            </div>
+            <div className="preview-wrap" style={{ minHeight:'60vh' }}>
+              <div className="preview-toolbar">
+                <div className="toolbar-dots">
+                  <div className="dot dot-r"/><div className="dot dot-y"/><div className="dot dot-g"/>
                 </div>
-                <div className={`iframe-area frame-${deviceFrame}`}>
-                  <iframe src={project.previewUrl || 'about:blank'} style={{ width: '100%', height: '100%', border: 'none' }} title="Preview"></iframe>
+                <div className="toolbar-url">
+                  {project.previewUrl || 'No preview URL set'}
                 </div>
+              </div>
+              <div className={`iframe-area frame-${deviceFrame}`}>
+                <iframe src={project.previewUrl || 'about:blank'} style={{ width:'100%', height:'100%', border:'none' }} title="Preview" />
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {activeTab === 'documents' && (
-            <div className="card">
-              <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>Project Documents</h2>
-              {(!project.documents || project.documents.length === 0) ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon">📄</div>
-                  <h3 className="empty-state-title">No documents attached yet.</h3>
-                  <p className="empty-state-sub">Ask your project manager.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {project.documents.map((doc, idx) => (
-                    <div key={idx} className="doc-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <span className="doc-icon" style={{ fontSize: '1.5rem' }}>{getDocIcon(doc.type)}</span>
-                        <div>
-                          <div className="doc-label" style={{ fontWeight: 500 }}>{doc.label}</div>
-                          <span className="doc-type badge" style={{ fontSize: '0.7rem', marginTop: '0.25rem', display: 'inline-block' }}>{doc.type}</span>
-                        </div>
-                      </div>
-                      <a href={doc.url} target="_blank" rel="noreferrer" className="btn-ghost">Open</a>
+        {/* ── Documents Tab ── */}
+        {activeTab === 'documents' && (
+          <div className="animate-in">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'1.5rem' }}>
+              <h2 className="section-title">Project Documents</h2>
+              <span className="section-count">{project.documents?.length || 0} files</span>
+            </div>
+            {(!project.documents || project.documents.length === 0) ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">📄</div>
+                <h3 className="empty-state-title">No documents yet</h3>
+                <p className="empty-state-sub">Ask your project manager to attach documents.</p>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                {project.documents.map((doc, idx) => (
+                  <div key={idx} className="doc-item">
+                    <div className="doc-icon" style={{ background:'var(--accent-light)', fontSize:'1.2rem' }}>{getDocIcon(doc.type)}</div>
+                    <div style={{ flex:1 }}>
+                      <div className="doc-label">{doc.label}</div>
+                      <span className="doc-type badge" style={{ marginTop:'0.25rem', display:'inline-block' }}>{doc.type}</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'revisions' && (
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Revisions & Feedback</h2>
-                <button className="btn-primary" onClick={() => setIsRevisionModalOpen(true)}>Raise Revision</button>
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="btn-ghost" style={{ fontSize:'0.8rem' }}>
+                      Open ↗
+                    </a>
+                  </div>
+                ))}
               </div>
+            )}
+          </div>
+        )}
 
-              {revisions.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-state-icon">💬</div>
-                  <h3 className="empty-state-title">No Revisions</h3>
-                  <p className="empty-state-sub">Everything looks good! Raise a revision if you need changes.</p>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {revisions.map(rev => {
-                    const revId = rev._id || rev.id;
-                    const isExpanded = expandedRevisionId === revId;
-                    return (
-                      <div key={revId} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem', overflow: 'hidden' }}>
-                        <div 
-                          style={{ display: 'flex', justifyContent: 'space-between', padding: '1.25rem', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.2s' }} 
-                          onClick={() => setExpandedRevisionId(isExpanded ? null : revId)}
-                        >
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                              <strong style={{ fontSize: '1.1rem' }}>{rev.title}</strong>
-                              <span className={`badge badge-${rev.status.toLowerCase()}`}>{rev.status}</span>
-                            </div>
-                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
-                              Raised by <span style={{ color: '#fff' }}>{rev.raisedByName || 'Unknown'}</span> on {new Date(rev.createdAt).toLocaleDateString()}
-                            </div>
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#888', fontSize: '0.9rem' }}>
-                            <span>{rev.thread?.length || 0} messages</span>
-                            <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
-                          </div>
-                        </div>
-
-                        {isExpanded && (
-                          <div style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                              {(rev.thread || []).map((msg, i) => {
-                                const isMe = msg.authorOrgId === session?.orgId;
-                                const isOwner = msg.authorType === 'owner';
-                                const isClient = msg.authorType === 'client';
-                                return (
-                                  <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
-                                    <div style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '0.25rem', fontSize: '0.75rem', color: '#888' }}>
-                                      <span style={{ fontWeight: 600, color: isMe ? 'var(--accent)' : (isOwner ? '#ff7035' : (isClient ? '#4facfe' : '#a8ff78')) }}>
-                                        {msg.authorName} ({msg.authorType})
-                                      </span>
-                                      <span style={{ margin: '0 0.5rem' }}>•</span>
-                                      <span>{new Date(msg.timestamp || msg.createdAt).toLocaleString()}</span>
-                                    </div>
-                                    <div style={{ 
-                                      padding: '0.85rem 1rem', 
-                                      background: isMe ? 'var(--accent)' : 'rgba(255,255,255,0.05)', 
-                                      color: isMe ? '#000' : '#fff',
-                                      borderRadius: '12px',
-                                      borderBottomRightRadius: isMe ? '4px' : '12px',
-                                      borderBottomLeftRadius: isMe ? '12px' : '4px',
-                                      lineHeight: 1.5
-                                    }}>
-                                      {msg.message}
-                                    </div>
-                                    {msg.imageUrl && (
-                                      <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', marginTop: '0.5rem', borderRadius: '8px' }} />
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            
-                            {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                <div style={{ display: 'flex', gap: '10px' }}>
-                                  <textarea 
-                                    className="textarea" 
-                                    placeholder="Type your reply here..." 
-                                    value={replyText} 
-                                    onChange={e => setReplyText(e.target.value)} 
-                                    style={{ flex: 1, minHeight: '60px', borderRadius: '8px' }}
-                                  ></textarea>
-                                  <button className="btn-primary" onClick={() => submitReply(revId)} style={{ padding: '0 1.5rem' }}>Send</button>
-                                </div>
-                                <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                  <button className="btn-ghost" onClick={() => updateRevisionStatus(revId, 'in-progress')}>Mark In-Progress</button>
-                                  <button className="btn-ghost" onClick={() => updateRevisionStatus(revId, 'resolved')}>Mark Resolved</button>
-                                  <button className="btn-danger" onClick={() => updateRevisionStatus(revId, 'closed')}>Close Revision</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'notes' && (
-            <div className="card">
-              <div style={{ padding: '1rem', backgroundColor: 'rgba(255, 159, 0, 0.1)', border: '1px solid rgba(255, 159, 0, 0.3)', borderRadius: '8px', color: 'var(--accent-secondary)', marginBottom: '2rem' }}>
-                <strong>Note:</strong> These notes are private to your organization only.
+        {/* ── Revisions Tab ── */}
+        {activeTab === 'revisions' && (
+          <div className="animate-in">
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'2rem' }}>
+              <div>
+                <h2 className="section-title" style={{ marginBottom:'0.25rem' }}>Revisions & Feedback</h2>
+                <p style={{ fontSize:'0.83rem', color:'var(--text-muted)' }}>
+                  {revisions.length === 0 ? 'No revisions raised yet.' : `${revisions.length} revision${revisions.length !== 1 ? 's' : ''} total`}
+                </p>
               </div>
+              <button className="btn-primary" onClick={() => setIsRevisionModalOpen(true)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Raise Revision
+              </button>
+            </div>
 
-              <h2 className="section-title" style={{ marginBottom: '1.5rem' }}>Private Notes</h2>
-              
-              <form onSubmit={submitNote} style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', backgroundColor: '#110e0c', padding: '1.5rem', borderRadius: '8px' }}>
-                <div className="form-group">
-                  <label className="form-label">Label (e.g. Server Credentials)</label>
-                  <input type="text" className="input" value={noteLabel} onChange={(e) => setNoteLabel(e.target.value)} required />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Value</label>
-                  <textarea className="textarea" value={noteValue} onChange={(e) => setNoteValue(e.target.value)} required style={{ fontFamily: 'monospace' }}></textarea>
-                </div>
-                <button type="submit" className="btn-primary" style={{ alignSelf: 'flex-start' }}>Add Note</button>
-              </form>
+            {revisions.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state-icon">💬</div>
+                <h3 className="empty-state-title">All Clear!</h3>
+                <p className="empty-state-sub">No revisions have been raised for this project.</p>
+              </div>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
+                {revisions.map(rev => {
+                  const revId      = rev._id || rev.id;
+                  const isExpanded = expandedRevisionId === revId;
+                  const myOrgId    = session?.orgId;
 
-              {notes.length === 0 ? (
-                <p style={{ color: '#888' }}>No private notes yet.</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {notes.map(note => (
-                    <div key={note.id} className="note-entry" style={{ backgroundColor: '#1a1614', padding: '1rem', borderRadius: '8px', position: 'relative' }}>
-                      <button 
-                        onClick={() => deleteNote(note.id)} 
-                        className="btn-danger" 
-                        style={{ position: 'absolute', top: '1rem', right: '1rem', padding: '0.25rem 0.5rem', fontSize: '0.8rem' }}
+                  return (
+                    <div key={revId} className="rev-card" style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-xl)', overflow:'hidden', transition:'border-color 0.2s, box-shadow 0.2s', boxShadow: isExpanded ? '0 8px 32px rgba(0,0,0,0.3)' : 'none' }}>
+                      {/* Card Header */}
+                      <div
+                        className="rev-card-header"
+                        style={{ padding:'1.25rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer', background: isExpanded ? 'rgba(255,255,255,0.015)' : 'transparent', transition:'background 0.2s', userSelect:'none' }}
+                        onClick={() => setExpandedRevisionId(isExpanded ? null : revId)}
                       >
-                        Delete
-                      </button>
-                      <div className="note-label" style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#fff' }}>{note.label}</div>
-                      <div className="note-value" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: '#ccc', backgroundColor: '#0a0807', padding: '1rem', borderRadius: '4px' }}>
-                        {note.value}
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'0.35rem', flexWrap:'wrap' }}>
+                            <strong style={{ fontSize:'1rem', fontWeight:600 }}>{rev.title}</strong>
+                            <span className={`badge badge-${(rev.status || 'open').replace('-', '')}`}>{rev.status}</span>
+                          </div>
+                          <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>
+                            Raised by{' '}
+                            <span style={{ color:'var(--text-secondary)', fontWeight:500 }}>{rev.raisedByName || 'Unknown'}</span>
+                            {' '}· {new Date(rev.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
+                            {' '}· {rev.thread?.length || 0} message{(rev.thread?.length || 0) !== 1 ? 's' : ''}
+                          </div>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginLeft:'1rem', flexShrink:0 }}>
+                          <svg
+                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                            style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition:'transform 0.25s ease', color:'var(--text-muted)' }}
+                          >
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </div>
                       </div>
+
+                      {/* Expanded chat */}
+                      {isExpanded && (
+                        <div style={{ borderTop:'1px solid var(--bg-border)' }}>
+                          {/* Chat messages */}
+                          <div
+                            className="chat-container"
+                            style={{ display:'flex', flexDirection:'column', gap:'1rem', padding:'1.5rem', maxHeight:'420px', overflowY:'auto' }}
+                          >
+                            {(rev.thread || []).length === 0 && (
+                              <p style={{ color:'var(--text-muted)', fontSize:'0.85rem', textAlign:'center', padding:'1rem' }}>No messages yet. Start the conversation below.</p>
+                            )}
+                            {(rev.thread || []).map((msg, i) => {
+                              const isMe     = msg.authorOrgId === myOrgId;
+                              const color    = authorColor(msg.authorType);
+                              const time     = new Date(msg.timestamp || msg.createdAt);
+                              const isValid  = !isNaN(time.getTime());
+
+                              return (
+                                <div
+                                  key={i}
+                                  className={`chat-row ${isMe ? 'mine' : 'theirs'} chat-msg-in`}
+                                  style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start', animationDelay:`${i * 0.04}s` }}
+                                >
+                                  <div className="chat-meta" style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.3rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
+                                    <span style={{ fontWeight:600, color }}>{msg.authorName}</span>
+                                    <span style={{ color:'var(--bg-border-h)' }}>·</span>
+                                    <span style={{ textTransform:'capitalize' }}>{msg.authorType}</span>
+                                    {isValid && (
+                                      <>
+                                        <span style={{ color:'var(--bg-border-h)' }}>·</span>
+                                        <span>{time.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
+                                      </>
+                                    )}
+                                    {msg._optimistic && <span style={{ opacity:0.5, fontStyle:'italic' }}>Sending…</span>}
+                                  </div>
+                                  <div
+                                    className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}
+                                    style={{
+                                      padding:'0.85rem 1.15rem',
+                                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                      maxWidth:'72%',
+                                      fontSize:'0.88rem',
+                                      lineHeight:1.55,
+                                      wordBreak:'break-word',
+                                      background: isMe ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.06)',
+                                      color: isMe ? '#0a0807' : 'var(--text-primary)',
+                                      border: isMe ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                      opacity: msg._optimistic ? 0.7 : 1,
+                                      transition:'opacity 0.3s',
+                                    }}
+                                  >
+                                    {msg.message}
+                                  </div>
+                                  {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)' }} />
+                                  )}
+                                </div>
+                              );
+                            })}
+                            {/* Scroll anchor */}
+                            <div ref={el => { if (el) chatEndRefs.current[revId] = el; }} />
+                          </div>
+
+                          {/* Status actions */}
+                          {rev.status !== 'closed' && rev.status !== 'resolved' && (
+                            <div style={{ display:'flex', gap:'0.5rem', padding:'0 1.5rem 0.75rem', flexWrap:'wrap' }}>
+                              <button className="btn-ghost" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'in-progress')}>
+                                Mark In-Progress
+                              </button>
+                              <button className="btn-ghost" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'resolved')}>
+                                ✓ Resolve
+                              </button>
+                              <button className="btn-danger" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'closed')}>
+                                Close
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Chat Input */}
+                          {rev.status !== 'closed' && rev.status !== 'resolved' ? (
+                            <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
+                              <textarea
+                                className="chat-textarea"
+                                placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                                value={replyTexts[revId] || ''}
+                                onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
+                                onKeyDown={e => handleReplyKeyDown(e, revId)}
+                                rows={1}
+                                style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
+                              />
+                              <button
+                                onClick={() => submitReply(revId)}
+                                disabled={!replyTexts[revId]?.trim() || sendingReply}
+                                style={{ width:'44px', height:'44px', borderRadius:'50%', background: replyTexts[revId]?.trim() ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: replyTexts[revId]?.trim() ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: replyTexts[revId]?.trim() ? 'pointer' : 'not-allowed', border:'none', boxShadow: replyTexts[revId]?.trim() ? '0 4px 12px var(--accent-glow)' : 'none' }}
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)', fontSize:'0.82rem', color:'var(--text-muted)', textAlign:'center' }}>
+                              This revision is {rev.status}. No further replies.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Notes Tab ── */}
+        {activeTab === 'notes' && (
+          <div className="animate-in">
+            <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'1rem 1.25rem', background:'rgba(255,159,0,0.08)', border:'1px solid rgba(255,159,0,0.2)', borderRadius:'var(--radius-md)', marginBottom:'2rem' }}>
+              <span style={{ fontSize:'1rem' }}>🔒</span>
+              <div>
+                <div style={{ fontSize:'0.82rem', fontWeight:600, color:'var(--accent-secondary)', marginBottom:'0.1rem' }}>Private Notes</div>
+                <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>Only visible to your organization. Never shared with clients or the owner.</div>
+              </div>
             </div>
-          )}
 
-        </div>
-      </div>
+            <h2 className="section-title" style={{ marginBottom:'1.5rem' }}>Private Notes</h2>
 
-      {/* Revision Modal */}
+            <form onSubmit={submitNote} style={{ marginBottom:'2rem', display:'flex', flexDirection:'column', gap:'1rem', background:'var(--bg-surface-2)', padding:'1.5rem', borderRadius:'var(--radius-lg)', border:'1px solid var(--bg-border)' }}>
+              <div className="form-group">
+                <label className="form-label">Label</label>
+                <input type="text" className="input" placeholder="e.g. Server Credentials" value={noteLabel} onChange={e => setNoteLabel(e.target.value)} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Value</label>
+                <textarea className="textarea" placeholder="Enter the note value…" value={noteValue} onChange={e => setNoteValue(e.target.value)} required style={{ fontFamily:'monospace', minHeight:'80px' }} />
+              </div>
+              <button type="submit" className="btn-primary" style={{ alignSelf:'flex-start' }}>Add Note</button>
+            </form>
+
+            {notes.length === 0 ? (
+              <p style={{ color:'var(--text-muted)', fontSize:'0.88rem' }}>No notes added yet.</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+                {notes.map(note => (
+                  <div key={note.id} style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-lg)', padding:'1.25rem 1.5rem', position:'relative' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.75rem' }}>
+                      <div style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{note.label}</div>
+                      <button onClick={() => deleteNote(note.id)} className="btn-danger" style={{ padding:'0.25rem 0.6rem', fontSize:'0.75rem' }}>Delete</button>
+                    </div>
+                    <div style={{ fontFamily:'monospace', fontSize:'0.85rem', whiteSpace:'pre-wrap', color:'var(--text-secondary)', background:'var(--bg-base)', padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)' }}>
+                      {note.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      {/* ── Raise Revision Modal ── */}
       {isRevisionModalOpen && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="modal-box card" style={{ width: '100%', maxWidth: '500px' }}>
-            <div className="modal-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 className="modal-title" style={{ margin: 0 }}>Raise Revision</h2>
-              <button onClick={() => setIsRevisionModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.5rem' }}>&times;</button>
+        <div className="modal-overlay" onClick={() => setIsRevisionModalOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Raise a Revision</span>
+              <button className="btn-icon" onClick={() => setIsRevisionModalOpen(false)}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
             </div>
-            <form onSubmit={submitRevision} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <form onSubmit={submitRevision} className="modal-body">
               <div className="form-group">
                 <label className="form-label">Title</label>
-                <input type="text" className="input" value={revisionTitle} onChange={(e) => setRevisionTitle(e.target.value)} required />
+                <input type="text" className="input" placeholder="e.g. Change hero section color" value={revisionTitle} onChange={e => setRevisionTitle(e.target.value)} required autoFocus />
               </div>
               <div className="form-group">
                 <label className="form-label">Description</label>
-                <textarea className="textarea" value={revisionDesc} onChange={(e) => setRevisionDesc(e.target.value)} required style={{ minHeight: '100px' }}></textarea>
+                <textarea className="textarea" placeholder="Describe what needs to be changed…" value={revisionDesc} onChange={e => setRevisionDesc(e.target.value)} required style={{ minHeight:'100px' }} />
               </div>
               <div className="form-group">
                 <label className="form-label">Attachment (Optional)</label>
-                <input type="file" className="input" accept="image/*" onChange={(e) => handleFileChange(e, setRevisionImg)} ref={fileInputRef} />
-                {revisionImg && <img src={revisionImg} alt="Preview" style={{ marginTop: '0.5rem', maxHeight: '100px', borderRadius: '4px' }} />}
+                <input type="file" className="input" accept="image/*" onChange={e => handleFileChange(e, setRevisionImg)} ref={fileInputRef} />
+                {revisionImg && <img src={revisionImg} alt="Preview" style={{ marginTop:'0.5rem', maxHeight:'120px', borderRadius:'8px' }} />}
               </div>
-              <div className="modal-footer" style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <div className="modal-footer" style={{ padding:0, borderTop:'none', justifyContent:'flex-end', display:'flex', gap:'0.75rem' }}>
                 <button type="button" className="btn-ghost" onClick={() => setIsRevisionModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn-primary">Submit Revision</button>
               </div>
@@ -536,19 +660,16 @@ export default function ProjectDetail({ params }) {
         </div>
       )}
 
-      {/* Fullscreen Preview Modal */}
+      {/* ── Fullscreen Preview Modal ── */}
       {isFullscreen && (
-        <div className="fs-modal open" style={{ position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
-          <div className="fs-modal-header" style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111' }}>
-            <div style={{ color: '#888' }}>{project?.title} - Preview</div>
-            <button className="btn-ghost" onClick={() => setIsFullscreen(false)}>Close Fullscreen</button>
+        <div style={{ position:'fixed', inset:0, backgroundColor:'#000', zIndex:1000, display:'flex', flexDirection:'column' }}>
+          <div style={{ padding:'0.75rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', background:'var(--bg-surface)', borderBottom:'1px solid var(--bg-border)' }}>
+            <span style={{ fontSize:'0.88rem', color:'var(--text-secondary)' }}>{project.title} — Full Preview</span>
+            <button className="btn-ghost" onClick={() => setIsFullscreen(false)}>✕ Close</button>
           </div>
-          <div style={{ flex: 1 }}>
-            <iframe src={project?.previewUrl || 'about:blank'} style={{ width: '100%', height: '100%', border: 'none' }} title="Fullscreen Preview"></iframe>
-          </div>
+          <iframe src={project.previewUrl || 'about:blank'} style={{ flex:1, border:'none', width:'100%' }} title="Fullscreen Preview" />
         </div>
       )}
-
     </div>
   );
 }
