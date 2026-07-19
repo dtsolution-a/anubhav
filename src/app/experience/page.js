@@ -17,6 +17,15 @@ export default function ExperiencePage() {
   const [device, setDevice]   = useState('desktop');
   const [active, setActive]   = useState(false); // iframe activated
   const [fsOpen, setFsOpen]   = useState(false);
+  
+  // Revisions State
+  const [revisions, setRevisions] = useState([]);
+  const [showRevModal, setShowRevModal] = useState(false);
+  const [revTitle, setRevTitle] = useState('');
+  const [revDesc, setRevDesc] = useState('');
+  const [replyText, setReplyText] = useState({});
+  const [expandedRevId, setExpandedRevId] = useState(null);
+
   const router = useRouter();
   const fsRef  = useRef(null);
 
@@ -26,7 +35,18 @@ export default function ExperiencePage() {
         if (r.status === 401 || r.status === 403) { router.push('/'); return null; }
         return r.json();
       })
-      .then(d => { if (d) setData(d); })
+      .then(d => { 
+        if (d) {
+          setData(d); 
+          // Fetch revisions for this project
+          if (d.project?._id) {
+            fetch(`/api/revisions?projectId=${d.project._id}`)
+              .then(res => res.json())
+              .then(revs => setRevisions(revs))
+              .catch(console.error);
+          }
+        } 
+      })
       .catch(() => setError('Failed to load experience data.'))
       .finally(() => setLoading(false));
   }, []);
@@ -41,6 +61,43 @@ export default function ExperiencePage() {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
   }
+
+  const handleRaiseRevision = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/revisions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: data.project._id, title: revTitle, message: revDesc })
+      });
+      if (!res.ok) throw new Error();
+      const newRev = await res.json();
+      setRevisions([newRev, ...revisions]);
+      setRevTitle('');
+      setRevDesc('');
+      setExpandedRevId(newRev._id || newRev.id);
+    } catch (err) {
+      alert('Failed to raise revision');
+    }
+  };
+
+  const handleReplyRevision = async (revId) => {
+    const msg = replyText[revId];
+    if (!msg) return;
+    try {
+      const res = await fetch(`/api/revisions/${revId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ _addMessage: { message: msg } })
+      });
+      if (!res.ok) throw new Error();
+      const updatedRev = await res.json();
+      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
+      setReplyText({ ...replyText, [revId]: '' });
+    } catch (err) {
+      alert('Failed to post reply');
+    }
+  };
 
   if (loading) return (
     <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -85,6 +142,14 @@ export default function ExperiencePage() {
         </div>
 
         <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+          <button 
+            className="btn-ghost" 
+            style={{ fontSize:'0.76rem', padding:'0.4rem 1rem', display:'flex', alignItems:'center', gap:'0.4rem', border:`1px solid ${accentLt}`, color: accent }} 
+            onClick={() => setShowRevModal(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            Revisions
+          </button>
           <span style={{ fontSize:'1rem', fontFamily:'Noto Sans Devanagari, serif', color:'var(--text-muted)', lineHeight:1.4 }}>अनुभवः</span>
           <button className="btn-ghost" style={{ fontSize:'0.76rem', padding:'0.28rem 0.7rem' }} onClick={logout}>Exit</button>
         </div>
@@ -189,6 +254,105 @@ export default function ExperiencePage() {
           <iframe src={project.previewUrl} title="Full Preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ flex:1, border:'none', width:'100%' }} />
         )}
       </div>
+
+      {/* ── Revisions Modal ── */}
+      {showRevModal && (
+        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', justifyContent:'flex-end', background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
+          <div style={{ width:'100%', maxWidth:'500px', height:'100%', background: bgBase, borderLeft:`1px solid ${accentLt}`, display:'flex', flexDirection:'column', boxShadow:'-10px 0 40px rgba(0,0,0,0.3)', animation:'slideInRight 0.3s ease' }}>
+            <div style={{ padding:'1.5rem', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h2 style={{ fontFamily:'Outfit,sans-serif', fontSize:'1.2rem', fontWeight:600, color:'#fff', margin:0 }}>Revisions & Feedback</h2>
+              <button className="btn-icon" onClick={() => setShowRevModal(false)}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            
+            <div style={{ flex:1, overflowY:'auto', padding:'1.5rem' }}>
+              <form onSubmit={handleRaiseRevision} style={{ background:'rgba(255,255,255,0.02)', padding:'1.25rem', borderRadius:'12px', border:`1px solid ${accentLt}`, marginBottom:'2rem' }}>
+                <h3 style={{ fontSize:'0.9rem', color:'#fff', marginBottom:'1rem', marginTop:0 }}>Raise New Revision</h3>
+                <input type="text" className="input" placeholder="Title (e.g. Change logo color)" value={revTitle} onChange={e => setRevTitle(e.target.value)} required style={{ marginBottom:'0.75rem', background:'rgba(0,0,0,0.3)' }} />
+                <textarea className="textarea" placeholder="Describe the changes needed..." value={revDesc} onChange={e => setRevDesc(e.target.value)} required style={{ minHeight:'80px', marginBottom:'1rem', background:'rgba(0,0,0,0.3)' }}></textarea>
+                <button type="submit" className="btn-primary" style={{ width:'100%', background: accent, color:'#000' }}>Submit Revision</button>
+              </form>
+
+              <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
+                {revisions.map(rev => {
+                  const revId = rev._id || rev.id;
+                  const isExpanded = expandedRevId === revId;
+                  return (
+                    <div key={revId} style={{ background:'rgba(255,255,255,0.02)', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)', overflow:'hidden' }}>
+                      <div 
+                        style={{ padding:'1.25rem', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent' }}
+                        onClick={() => setExpandedRevId(isExpanded ? null : revId)}
+                      >
+                        <div>
+                          <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', marginBottom:'0.25rem' }}>
+                            <strong style={{ color:'#fff', fontSize:'0.95rem' }}>{rev.title}</strong>
+                            <span style={{ fontSize:'0.65rem', padding:'0.15rem 0.5rem', borderRadius:'100px', background: rev.status==='resolved'?'#a8ff78':(rev.status==='closed'?'#333':accentLt), color:rev.status==='resolved'?'#000':(rev.status==='closed'?'#888':accent), textTransform:'uppercase', fontWeight:600 }}>{rev.status}</span>
+                          </div>
+                          <div style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{new Date(rev.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <span style={{ color:'var(--text-muted)', fontSize:'0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>▼</span>
+                      </div>
+
+                      {isExpanded && (
+                        <div style={{ padding:'1.25rem', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'1.5rem' }}>
+                            {(rev.thread || []).map((msg, i) => {
+                              const isMe = msg.authorType === 'client';
+                              return (
+                                <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'85%' }}>
+                                  <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.25rem', display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap:'0.4rem' }}>
+                                    <strong style={{ color: isMe ? accent : '#fff' }}>{msg.authorName}</strong>
+                                    <span>{new Date(msg.timestamp || msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                  </div>
+                                  <div style={{ 
+                                    padding:'0.75rem 1rem', 
+                                    background: isMe ? accent : 'rgba(255,255,255,0.08)', 
+                                    color: isMe ? '#000' : '#fff',
+                                    borderRadius:'12px',
+                                    borderBottomRightRadius: isMe ? '2px' : '12px',
+                                    borderBottomLeftRadius: isMe ? '12px' : '2px',
+                                    fontSize:'0.85rem',
+                                    lineHeight:1.4
+                                  }}>
+                                    {msg.message}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          
+                          {rev.status !== 'closed' && rev.status !== 'resolved' && (
+                            <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-end' }}>
+                              <textarea 
+                                className="textarea" 
+                                placeholder="Reply..." 
+                                value={replyText[revId] || ''} 
+                                onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
+                                style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)' }}
+                              ></textarea>
+                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes slideInRight {
+          from { transform: translateX(100%); }
+          to { transform: translateX(0); }
+        }
+      `}} />
     </div>
   );
 }

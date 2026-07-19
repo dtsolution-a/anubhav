@@ -134,7 +134,7 @@ export default function ProjectDetail({ params }) {
       });
       if (!replyRes.ok) throw new Error('Failed to post reply');
       const updatedRev = await replyRes.json();
-      setRevisions(revisions.map(r => r.id === revId ? updatedRev : r));
+      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
       setReplyText('');
     } catch (err) {
       console.error(err);
@@ -151,7 +151,7 @@ export default function ProjectDetail({ params }) {
       });
       if (!res.ok) throw new Error('Failed to update status');
       const updatedRev = await res.json();
-      setRevisions(revisions.map(r => r.id === revId ? updatedRev : r));
+      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
     } catch (err) {
       console.error(err);
       alert('Failed to update status');
@@ -369,68 +369,90 @@ export default function ProjectDetail({ params }) {
                   <p className="empty-state-sub">Everything looks good! Raise a revision if you need changes.</p>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {revisions.map(rev => (
-                    <div key={rev.id} className="card-sm">
-                      <div 
-                        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}
-                        onClick={() => setExpandedRevisionId(expandedRevisionId === rev.id ? null : rev.id)}
-                      >
-                        <div>
-                          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>{rev.title}</h3>
-                          <div style={{ display: 'flex', gap: '1rem', fontSize: '0.85rem', color: '#888' }}>
-                            <span>By: {rev.raisedBy || 'Agency'}</span>
-                            <span>Date: {new Date(rev.createdAt).toLocaleDateString()}</span>
-                            <span>{rev.messages?.length || 0} messages</span>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {revisions.map(rev => {
+                    const revId = rev._id || rev.id;
+                    const isExpanded = expandedRevisionId === revId;
+                    return (
+                      <div key={revId} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem', overflow: 'hidden' }}>
+                        <div 
+                          style={{ display: 'flex', justifyContent: 'space-between', padding: '1.25rem', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.2s' }} 
+                          onClick={() => setExpandedRevisionId(isExpanded ? null : revId)}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                              <strong style={{ fontSize: '1.1rem' }}>{rev.title}</strong>
+                              <span className={`badge badge-${rev.status.toLowerCase()}`}>{rev.status}</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: '#888' }}>
+                              Raised by <span style={{ color: '#fff' }}>{rev.raisedByName || 'Unknown'}</span> on {new Date(rev.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#888', fontSize: '0.9rem' }}>
+                            <span>{rev.thread?.length || 0} messages</span>
+                            <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
                           </div>
                         </div>
-                        <span className={`badge badge-${rev.status.toLowerCase()}`}>{rev.status}</span>
-                      </div>
 
-                      {expandedRevisionId === rev.id && (
-                        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                            {(rev.messages || []).map((msg, i) => {
-                              const isMe = msg.authorOrgId === session?.orgId;
-                              return (
-                                <div key={i} className={`thread-msg ${isMe ? 'by-me' : ''}`} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.8rem', color: '#888' }}>
-                                    <span className="thread-author">{msg.authorName}</span>
-                                    <span className="thread-time">{new Date(msg.timestamp || Date.now()).toLocaleTimeString()}</span>
+                        {isExpanded && (
+                          <div style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                              {(rev.thread || []).map((msg, i) => {
+                                const isMe = msg.authorOrgId === session?.orgId;
+                                const isOwner = msg.authorType === 'owner';
+                                const isClient = msg.authorType === 'client';
+                                return (
+                                  <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+                                    <div style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom: '0.25rem', fontSize: '0.75rem', color: '#888' }}>
+                                      <span style={{ fontWeight: 600, color: isMe ? 'var(--accent)' : (isOwner ? '#ff7035' : (isClient ? '#4facfe' : '#a8ff78')) }}>
+                                        {msg.authorName} ({msg.authorType})
+                                      </span>
+                                      <span style={{ margin: '0 0.5rem' }}>•</span>
+                                      <span>{new Date(msg.timestamp || msg.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ 
+                                      padding: '0.85rem 1rem', 
+                                      background: isMe ? 'var(--accent)' : 'rgba(255,255,255,0.05)', 
+                                      color: isMe ? '#000' : '#fff',
+                                      borderRadius: '12px',
+                                      borderBottomRightRadius: isMe ? '4px' : '12px',
+                                      borderBottomLeftRadius: isMe ? '12px' : '4px',
+                                      lineHeight: 1.5
+                                    }}>
+                                      {msg.message}
+                                    </div>
+                                    {msg.imageUrl && (
+                                      <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', marginTop: '0.5rem', borderRadius: '8px' }} />
+                                    )}
                                   </div>
-                                  <div className="thread-text" style={{ padding: '0.75rem', backgroundColor: isMe ? 'var(--accent)' : '#1a1614', borderRadius: '8px', color: isMe ? '#000' : '#fff' }}>
-                                    {msg.message}
-                                  </div>
-                                  {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="attachment" className="thread-img" style={{ maxWidth: '100%', marginTop: '0.5rem', borderRadius: '4px' }} />
-                                  )}
+                                );
+                              })}
+                            </div>
+                            
+                            {rev.status !== 'closed' && rev.status !== 'resolved' && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <textarea 
+                                    className="textarea" 
+                                    placeholder="Type your reply here..." 
+                                    value={replyText} 
+                                    onChange={e => setReplyText(e.target.value)} 
+                                    style={{ flex: 1, minHeight: '60px', borderRadius: '8px' }}
+                                  ></textarea>
+                                  <button className="btn-primary" onClick={() => submitReply(revId)} style={{ padding: '0 1.5rem' }}>Send</button>
                                 </div>
-                              );
-                            })}
-                          </div>
-                          
-                          {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                              <textarea 
-                                className="textarea" 
-                                placeholder="Type a reply..." 
-                                value={replyText} 
-                                onChange={(e) => setReplyText(e.target.value)}
-                                style={{ minHeight: '80px' }}
-                              ></textarea>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                  <button className="btn-primary" onClick={() => submitReply(rev.id)}>Reply</button>
-                                  <button className="btn-ghost" onClick={() => updateRevisionStatus(rev.id, 'resolved')}>Mark Resolved</button>
-                                  <button className="btn-danger" onClick={() => updateRevisionStatus(rev.id, 'closed')}>Close</button>
+                                <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <button className="btn-ghost" onClick={() => updateRevisionStatus(revId, 'in-progress')}>Mark In-Progress</button>
+                                  <button className="btn-ghost" onClick={() => updateRevisionStatus(revId, 'resolved')}>Mark Resolved</button>
+                                  <button className="btn-danger" onClick={() => updateRevisionStatus(revId, 'closed')}>Close Revision</button>
                                 </div>
                               </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

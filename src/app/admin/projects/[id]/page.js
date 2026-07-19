@@ -113,13 +113,15 @@ export default function AdminProjectDetails({ params }) {
 
   const handleRevisionStatus = async (revId, status) => {
     try {
-      await fetch(`/api/revisions/${revId}`, {
+      const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
+      if (!res.ok) throw new Error();
+      const updatedRev = await res.json();
+      setRevisions(revisions.map(r => (r.id || r._id) === revId ? updatedRev : r));
       showToast(`Revision marked as ${status}`);
-      fetchData();
     } catch (err) {
       showToast('Update failed', 'error');
     }
@@ -129,14 +131,16 @@ export default function AdminProjectDetails({ params }) {
     const msg = replyMsg[revId];
     if (!msg) return;
     try {
-      await fetch(`/api/revisions/${revId}`, {
+      const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ _addMessage: { message: msg } })
       });
+      if (!res.ok) throw new Error();
+      const updatedRev = await res.json();
+      setRevisions(revisions.map(r => (r.id || r._id) === revId ? updatedRev : r));
       setReplyMsg({ ...replyMsg, [revId]: '' });
       showToast('Reply sent');
-      fetchData();
     } catch (err) {
       showToast('Failed to reply', 'error');
     }
@@ -291,39 +295,79 @@ export default function AdminProjectDetails({ params }) {
                   const revId = rev.id || rev._id;
                   const isExpanded = expandedRev === revId;
                   return (
-                    <div key={revId} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '15px', marginBottom: '15px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setExpandedRev(isExpanded ? null : revId)}>
-                        <div>
-                          <strong>{rev.title}</strong> <span className={`badge badge-${rev.status}`}>{rev.status}</span>
-                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Raised by {rev.raisedBy} on {new Date(rev.createdAt).toLocaleDateString()}</div>
+                      <div key={revId} style={{ background: 'var(--surface)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1.5rem', overflow: 'hidden' }}>
+                        <div 
+                          style={{ display: 'flex', justifyContent: 'space-between', padding: '1.25rem', cursor: 'pointer', background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent', transition: 'background 0.2s' }} 
+                          onClick={() => setExpandedRev(isExpanded ? null : revId)}
+                        >
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                              <strong style={{ fontSize: '1.1rem' }}>{rev.title}</strong>
+                              <span className={`badge badge-${rev.status}`}>{rev.status}</span>
+                            </div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              Raised by <span style={{ color: 'var(--text)' }}>{rev.raisedByName || 'Unknown'}</span> on {new Date(rev.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                            <span>{rev.thread?.length || 0} messages</span>
+                            <span style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}>▼</span>
+                          </div>
                         </div>
-                        <div>
-                          {rev.thread?.length || 0} msgs {isExpanded ? '▲' : '▼'}
-                        </div>
-                      </div>
 
-                      {isExpanded && (
-                        <div style={{ marginTop: '15px', padding: '15px', background: 'var(--surface)', borderRadius: '8px' }}>
-                          <div style={{ marginBottom: '15px' }}>
-                            {rev.thread?.map((msg, i) => (
-                              <div key={i} className={`thread-msg ${msg.role === 'owner' ? 'by-me' : ''}`}>
-                                <div className="thread-author">{msg.authorName} ({msg.role}) <span className="thread-time">{new Date(msg.createdAt).toLocaleString()}</span></div>
-                                <div className="thread-text">{msg.message}</div>
+                        {isExpanded && (
+                          <div style={{ padding: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                              {rev.thread?.map((msg, i) => {
+                                const isOwner = msg.authorType === 'owner';
+                                const isClient = msg.authorType === 'client';
+                                return (
+                                  <div key={i} style={{ alignSelf: isOwner ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+                                    <div style={{ display: 'flex', justifyContent: isOwner ? 'flex-end' : 'flex-start', marginBottom: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                      <span style={{ fontWeight: 600, color: isOwner ? 'var(--accent)' : (isClient ? '#4facfe' : '#a8ff78') }}>
+                                        {msg.authorName} ({msg.authorType})
+                                      </span>
+                                      <span style={{ margin: '0 0.5rem' }}>•</span>
+                                      <span>{new Date(msg.timestamp || msg.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div style={{ 
+                                      padding: '0.85rem 1rem', 
+                                      background: isOwner ? 'var(--accent)' : 'rgba(255,255,255,0.05)', 
+                                      color: isOwner ? '#000' : '#fff',
+                                      borderRadius: '12px',
+                                      borderBottomRightRadius: isOwner ? '4px' : '12px',
+                                      borderBottomLeftRadius: isOwner ? '12px' : '4px',
+                                      lineHeight: 1.5
+                                    }}>
+                                      {msg.message}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            
+                            {rev.status !== 'closed' && rev.status !== 'resolved' && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                  <textarea 
+                                    className="textarea" 
+                                    placeholder="Type your reply here..." 
+                                    value={replyMsg[revId] || ''} 
+                                    onChange={e => setReplyMsg({...replyMsg, [revId]: e.target.value})} 
+                                    style={{ flex: 1, minHeight: '60px', borderRadius: '8px' }}
+                                  ></textarea>
+                                  <button className="btn-primary" onClick={() => handleReplyRevision(revId)} style={{ padding: '0 1.5rem' }}>Send</button>
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <button className="btn-ghost" onClick={() => handleRevisionStatus(revId, 'in-progress')}>Mark In-Progress</button>
+                                  <button className="btn-ghost" onClick={() => handleRevisionStatus(revId, 'resolved')}>Mark Resolved</button>
+                                  <button className="btn-danger" onClick={() => handleRevisionStatus(revId, 'closed')}>Close Revision</button>
+                                </div>
                               </div>
-                            ))}
+                            )}
                           </div>
-                          <div style={{ display: 'flex', gap: '10px' }}>
-                            <textarea className="textarea" placeholder="Reply..." value={replyMsg[revId] || ''} onChange={e => setReplyMsg({...replyMsg, [revId]: e.target.value})} style={{ flex: 1 }}></textarea>
-                            <button className="btn-primary" onClick={() => handleReplyRevision(revId)}>Send</button>
-                          </div>
-                          <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                            <button className="btn-ghost" onClick={() => handleRevisionStatus(revId, 'in-progress')}>Mark In-Progress</button>
-                            <button className="btn-ghost" onClick={() => handleRevisionStatus(revId, 'resolved')}>Mark Resolved</button>
-                            <button className="btn-danger" onClick={() => handleRevisionStatus(revId, 'closed')}>Close</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
                   );
                 })
               )}

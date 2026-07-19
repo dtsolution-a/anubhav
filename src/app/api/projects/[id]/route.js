@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Project from '@/models/Project';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
-import { v4 as uuid } from 'uuid';
+
 import mongoose from 'mongoose';
 
 async function getProjectAndCheckAccess(projectId, session) {
@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
   // If adding a document
   if (body._addDocument) {
     const { label, url, type } = body._addDocument;
-    const doc = { _id: uuid(), label, url, type: type || 'other', addedAt: new Date() };
+    const doc = { label, url, type: type || 'other', addedAt: new Date() };
     const project = await Project.findByIdAndUpdate(
       params.id,
       { $push: { documents: doc } },
