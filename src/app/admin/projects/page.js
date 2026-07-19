@@ -84,7 +84,7 @@ export default function AdminProjects() {
   const agencyOrgs = orgs.filter((o) => o.type === 'agency');
 
   return (
-    <div className="sidebar-layout bg-grid">
+    <div className="sidebar-layout"><div className="bg-grid" />
       <aside className="sidebar">
         <div className="sidebar-logo">
           <div className="sidebar-logo-mark">DTS</div>
