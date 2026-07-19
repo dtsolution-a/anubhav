@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
 const DEVICES = [
@@ -56,6 +56,33 @@ export default function ExperiencePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+
+  // ── Silent polling: auto-fetch open revision thread every 4 seconds ──
+  const pollRevision = useCallback(async (revId) => {
+    try {
+      const res = await fetch(`/api/revisions/${revId}`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      setRevisions(prev => {
+        const existing = prev.find(r => (r._id || r.id) === revId);
+        if (!existing) return prev;
+        if (
+          (updated.thread?.length || 0) !== (existing.thread?.length || 0) ||
+          updated.status !== existing.status
+        ) {
+          return prev.map(r => (r._id || r.id) === revId ? updated : r);
+        }
+        return prev;
+      });
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    if (!expandedRevId) return;
+    pollRevision(expandedRevId);
+    const interval = setInterval(() => pollRevision(expandedRevId), 4000);
+    return () => clearInterval(interval);
+  }, [expandedRevId, pollRevision]);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });

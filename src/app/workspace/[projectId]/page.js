@@ -72,6 +72,37 @@ export default function ProjectDetail({ params }) {
     }
   }, [expandedRevisionId, revisions]);
 
+  // ── Silent polling — fetch latest revision thread every 4s when open ──
+  const pollRevision = useCallback(async (revId) => {
+    try {
+      const res = await fetch(`/api/revisions/${revId}`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      setRevisions(prev => {
+        const existing = prev.find(r => (r._id || r.id) === revId);
+        if (!existing) return prev;
+        // Only update if thread length actually changed (new message came in)
+        if ((updated.thread?.length || 0) !== (existing.thread?.length || 0)) {
+          return prev.map(r => (r._id || r.id) === revId ? updated : r);
+        }
+        // Also update status if it changed
+        if (updated.status !== existing.status) {
+          return prev.map(r => (r._id || r.id) === revId ? updated : r);
+        }
+        return prev; // no change, don't re-render
+      });
+    } catch { /* silent fail */ }
+  }, []);
+
+  useEffect(() => {
+    if (!expandedRevisionId) return;
+    // Poll immediately once
+    pollRevision(expandedRevisionId);
+    // Then every 4 seconds
+    const interval = setInterval(() => pollRevision(expandedRevisionId), 4000);
+    return () => clearInterval(interval);
+  }, [expandedRevisionId, pollRevision]);
+
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -44,6 +44,33 @@ export default function AdminProjectDetails({ params }) {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  // ── Silent polling: poll the open revision's thread every 4 seconds ──
+  const pollRevision = useCallback(async (revId) => {
+    try {
+      const res = await fetch(`/api/revisions/${revId}`);
+      if (!res.ok) return;
+      const updated = await res.json();
+      setRevisions(prev => {
+        const existing = prev.find(r => (r._id || r.id) === revId);
+        if (!existing) return prev;
+        if (
+          (updated.thread?.length || 0) !== (existing.thread?.length || 0) ||
+          updated.status !== existing.status
+        ) {
+          return prev.map(r => (r._id || r.id) === revId ? updated : r);
+        }
+        return prev;
+      });
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    if (!expandedRev) return;
+    pollRevision(expandedRev);
+    const interval = setInterval(() => pollRevision(expandedRev), 4000);
+    return () => clearInterval(interval);
+  }, [expandedRev, pollRevision]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
