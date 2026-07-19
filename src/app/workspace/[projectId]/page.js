@@ -111,7 +111,7 @@ export default function ProjectDetail({ params }) {
       });
       if (!newRevRes.ok) throw new Error('Failed to create revision');
       const newRev = await newRevRes.json();
-      setRevisions([newRev, ...revisions]);
+      setRevisions(prev => [newRev, ...prev]);
       setIsRevisionModalOpen(false);
       setRevisionTitle('');
       setRevisionDesc('');
@@ -134,7 +134,7 @@ export default function ProjectDetail({ params }) {
       });
       if (!replyRes.ok) throw new Error('Failed to post reply');
       const updatedRev = await replyRes.json();
-      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
+      setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
       setReplyText('');
     } catch (err) {
       console.error(err);
@@ -151,7 +151,7 @@ export default function ProjectDetail({ params }) {
       });
       if (!res.ok) throw new Error('Failed to update status');
       const updatedRev = await res.json();
-      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
+      setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
     } catch (err) {
       console.error(err);
       alert('Failed to update status');

@@ -72,7 +72,7 @@ export default function ExperiencePage() {
       });
       if (!res.ok) throw new Error();
       const newRev = await res.json();
-      setRevisions([newRev, ...revisions]);
+      setRevisions(prev => [newRev, ...prev]);
       setRevTitle('');
       setRevDesc('');
       setExpandedRevId(newRev._id || newRev.id);
@@ -92,7 +92,7 @@ export default function ExperiencePage() {
       });
       if (!res.ok) throw new Error();
       const updatedRev = await res.json();
-      setRevisions(revisions.map(r => (r._id || r.id) === revId ? updatedRev : r));
+      setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
       setReplyText({ ...replyText, [revId]: '' });
     } catch (err) {
       alert('Failed to post reply');

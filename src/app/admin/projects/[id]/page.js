@@ -120,7 +120,7 @@ export default function AdminProjectDetails({ params }) {
       });
       if (!res.ok) throw new Error();
       const updatedRev = await res.json();
-      setRevisions(revisions.map(r => (r.id || r._id) === revId ? updatedRev : r));
+      setRevisions(prev => prev.map(r => (r.id || r._id) === revId ? updatedRev : r));
       showToast(`Revision marked as ${status}`);
     } catch (err) {
       showToast('Update failed', 'error');
@@ -138,7 +138,7 @@ export default function AdminProjectDetails({ params }) {
       });
       if (!res.ok) throw new Error();
       const updatedRev = await res.json();
-      setRevisions(revisions.map(r => (r.id || r._id) === revId ? updatedRev : r));
+      setRevisions(prev => prev.map(r => (r.id || r._id) === revId ? updatedRev : r));
       setReplyMsg({ ...replyMsg, [revId]: '' });
       showToast('Reply sent');
     } catch (err) {
@@ -341,6 +341,9 @@ export default function AdminProjectDetails({ params }) {
                                     }}>
                                       {msg.message}
                                     </div>
+                                    {msg.imageUrl && (
+                                      <img src={msg.imageUrl} alt="attachment" style={{ maxWidth: '100%', marginTop: '0.5rem', borderRadius: '8px' }} />
+                                    )}
                                   </div>
                                 );
                               })}
