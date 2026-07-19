@@ -134,7 +134,7 @@ export default function AdminProjects() {
                 {projects.map((p) => (
                   <tr key={p.id || p._id}>
                     <td>{p.title}</td>
-                    <td>{orgs.find((o) => o.id === p.agencyId || o._id === p.agencyId)?.name || p.agencyId || '-'}</td>
+                    <td>{typeof p.agencyId === 'object' && p.agencyId !== null ? p.agencyId.name : (orgs.find((o) => o.id === p.agencyId || o._id === p.agencyId)?.name || p.agencyId || '-')}</td>
                     <td>{p.clientCode || '-'}</td>
                     <td><span className={`badge badge-${p.status === 'in-review' ? 'review' : p.status}`}>{p.status}</span></td>
                     <td>

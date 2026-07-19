@@ -122,12 +122,12 @@ export default function AdminDashboard() {
                   ) : (
                     recentRevisions.map(rev => (
                       <tr key={rev.id || rev._id}>
-                        <td>{rev.projectTitle || rev.projectId}</td>
-                        <td>{rev.raisedBy}</td>
+                        <td>{typeof rev.projectId === 'object' && rev.projectId !== null ? rev.projectId.title : (rev.projectTitle || rev.projectId)}</td>
+                        <td>{rev.raisedByName || rev.raisedBy || '-'}</td>
                         <td><span className="badge badge-open">{rev.status || 'open'}</span></td>
                         <td>{new Date(rev.createdAt).toLocaleDateString()}</td>
                         <td>
-                          <Link href={`/admin/projects/${rev.projectId}?tab=revisions`} className="accent-text">
+                          <Link href={`/admin/projects/${typeof rev.projectId === 'object' && rev.projectId !== null ? (rev.projectId._id || rev.projectId.id) : rev.projectId}?tab=revisions`} className="accent-text">
                             View
                           </Link>
                         </td>

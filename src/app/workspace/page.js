@@ -157,7 +157,7 @@ export default function WorkspaceDashboard() {
         ) : (
           <div className="stats-grid animate-in" style={{ animationDelay: '0.3s' }}>
             {projects.map((project) => (
-              <div key={project.id} className="card">
+              <div key={project._id || project.id} className="card">
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '1rem', gap: '1rem' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', backgroundColor: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
                     {project.title.substring(0, 2).toUpperCase()}
@@ -173,7 +173,7 @@ export default function WorkspaceDashboard() {
                   {project.description?.substring(0, 80) || 'No description provided.'}
                   {project.description?.length > 80 ? '...' : ''}
                 </p>
-                <Link href={`/workspace/${project.id}`} className="btn-primary" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                <Link href={`/workspace/${project._id || project.id}`} className="btn-primary" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
                   View Project
                 </Link>
               </div>
