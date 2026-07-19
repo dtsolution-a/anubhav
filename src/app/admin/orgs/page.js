@@ -96,9 +96,9 @@ export default function AdminOrgs() {
     setShowModal(true);
   };
 
-  // Check route for '/new' fallback
+  // Check route for '?action=new' fallback
   useEffect(() => {
-    if (window.location.pathname.endsWith('/new')) {
+    if (window.location.search.includes('action=new')) {
       openNew();
     }
   }, []);

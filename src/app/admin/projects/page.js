@@ -74,9 +74,9 @@ export default function AdminProjects() {
     }
   };
 
-  // Safe fallback if 'new' URL triggers open modal
+  // Safe fallback if action=new URL triggers open modal
   useEffect(() => {
-    if (window.location.pathname.endsWith('/new')) {
+    if (window.location.search.includes('action=new')) {
       setShowModal(true);
     }
   }, []);

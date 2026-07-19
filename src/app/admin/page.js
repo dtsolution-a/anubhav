@@ -72,8 +72,8 @@ export default function AdminDashboard() {
             <p className="page-sub">Overview of your operations</p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => router.push('/admin/projects/new')} className="btn-primary">New Project</button>
-            <button onClick={() => router.push('/admin/orgs/new')} className="btn-ghost">New Organization</button>
+            <button onClick={() => router.push('/admin/projects?action=new')} className="btn-primary">New Project</button>
+            <button onClick={() => router.push('/admin/orgs?action=new')} className="btn-ghost">New Organization</button>
           </div>
         </div>
 
