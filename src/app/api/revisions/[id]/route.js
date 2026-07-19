@@ -3,11 +3,16 @@ import { connectDB } from '@/lib/mongodb';
 import Revision from '@/models/Revision';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 // GET single revision
 export async function GET(_, { params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   await connectDB();
   const revision = await Revision.findById(params.id)
@@ -22,6 +27,10 @@ export async function GET(_, { params }) {
 export async function PUT(request, { params }) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
 
   const body = await request.json();
   await connectDB();

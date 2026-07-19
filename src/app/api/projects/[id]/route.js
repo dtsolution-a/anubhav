@@ -4,9 +4,15 @@ import Project from '@/models/Project';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 import { v4 as uuid } from 'uuid';
+import mongoose from 'mongoose';
 
 async function getProjectAndCheckAccess(projectId, session) {
   await connectDB();
+  
+  if (!mongoose.Types.ObjectId.isValid(projectId)) {
+    return { error: 'Not found', status: 404 };
+  }
+
   const project = await Project.findById(projectId)
     .populate('agencyId', 'name branding code')
     .populate('ownerId', 'name branding')
@@ -34,7 +40,7 @@ export async function GET(_, { params }) {
 
   const { project, error, status } = await getProjectAndCheckAccess(params.id, session);
   if (error) return NextResponse.json({ error }, { status });
-  return NextResponse.json({ project });
+  return NextResponse.json(project);
 }
 
 // PUT — update project (owner only)
@@ -56,7 +62,7 @@ export async function PUT(request, { params }) {
       { $push: { documents: doc } },
       { new: true }
     ).lean();
-    return NextResponse.json({ project });
+    return NextResponse.json(project);
   }
 
   // If removing a document
@@ -66,7 +72,7 @@ export async function PUT(request, { params }) {
       { $pull: { documents: { _id: body._removeDocumentId } } },
       { new: true }
     ).lean();
-    return NextResponse.json({ project });
+    return NextResponse.json(project);
   }
 
   // Regular update
@@ -78,7 +84,7 @@ export async function PUT(request, { params }) {
 
   const project = await Project.findByIdAndUpdate(params.id, { $set: update }, { new: true }).lean();
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  return NextResponse.json({ project });
+  return NextResponse.json(project);
 }
 
 // DELETE (owner only)

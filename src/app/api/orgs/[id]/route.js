@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
+import mongoose from 'mongoose';
 
 export async function GET(_, { params }) {
   const session = await getSession();

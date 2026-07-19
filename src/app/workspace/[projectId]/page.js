@@ -248,8 +248,8 @@ export default function ProjectDetail({ params }) {
         
         <nav className="sidebar-nav">
           <Link href="/workspace" className="sidebar-nav-item">Dashboard</Link>
-          <Link href="/workspace/projects" className="sidebar-nav-item">Projects</Link>
-          <Link href="/workspace/revisions" className="sidebar-nav-item">Revisions</Link>
+          <Link href="/workspace" className="sidebar-nav-item">Projects</Link>
+          <Link href="/workspace" className="sidebar-nav-item">Revisions</Link>
         </nav>
         
         <div className="sidebar-spacer"></div>
