@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, Monitor, Paperclip, Lock, Link as LinkIcon } from 'lucide-react';
 
 export default function ProjectDetail({ params }) {
   const { projectId } = params;
@@ -34,6 +35,7 @@ export default function ProjectDetail({ params }) {
   };
 
   const [replyTexts, setReplyTexts] = useState({});   // per-revision reply text
+  const [replyImages, setReplyImages] = useState({}); // per-revision attached images
   const [sendingReply, setSendingReply] = useState(false);
 
   // Notes state
@@ -124,6 +126,20 @@ export default function ProjectDetail({ params }) {
     reader.readAsDataURL(file);
   };
 
+  const handlePaste = (e, revId) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        const reader = new FileReader();
+        reader.onloadend = () => setReplyImages(prev => ({ ...prev, [revId]: reader.result }));
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
   // ── Raise new revision ──────────────────────────────────────────
   const submitRevision = async (e) => {
     e.preventDefault();
@@ -147,7 +163,8 @@ export default function ProjectDetail({ params }) {
   // ── Send reply (optimistic update) ─────────────────────────────
   const submitReply = async (revId) => {
     const msg = replyTexts[revId]?.trim();
-    if (!msg || sendingReply) return;
+    const img = replyImages[revId];
+    if ((!msg && !img) || sendingReply) return;
 
     // Optimistic update — add message immediately
     const optimisticMsg = {
@@ -155,7 +172,8 @@ export default function ProjectDetail({ params }) {
       authorOrgId: session?.orgId,
       authorType: session?.type,
       authorName: session?.user?.name || 'Me',
-      message: msg,
+      message: msg || 'Uploaded an image',
+      imageUrl: img,
       timestamp: new Date().toISOString(),
     };
     setRevisions(prev => prev.map(r => {
@@ -163,13 +181,14 @@ export default function ProjectDetail({ params }) {
       return { ...r, thread: [...(r.thread || []), optimisticMsg] };
     }));
     setReplyTexts(prev => ({ ...prev, [revId]: '' }));
+    setReplyImages(prev => ({ ...prev, [revId]: null }));
     setSendingReply(true);
 
     try {
       const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _addMessage: { message: msg } })
+        body: JSON.stringify({ _addMessage: { message: msg || 'Uploaded an image', imageUrl: img } })
       });
       if (!res.ok) throw new Error();
       const updatedRev = await res.json();
@@ -294,15 +313,15 @@ export default function ProjectDetail({ params }) {
 
         <nav className="sidebar-nav">
           <Link href="/workspace" className="sidebar-nav-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <LayoutDashboard size={16} />
             Dashboard
           </Link>
-          <Link href="/workspace" className="sidebar-nav-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <Link href="/workspace" className="sidebar-nav-item active">
+            <FolderKanban size={16} />
             Projects
           </Link>
           <Link href="/workspace" className="sidebar-nav-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <MessageSquare size={16} />
             Revisions
           </Link>
         </nav>
@@ -312,7 +331,7 @@ export default function ProjectDetail({ params }) {
         <div className="sidebar-footer">
           <div style={{ fontFamily: 'Noto Sans Devanagari', fontSize:'0.9rem', color:'var(--accent)', marginBottom:'0.5rem' }}>अनुभवः</div>
           <button onClick={handleLogout} className="btn-ghost" style={{ width:'100%', justifyContent:'flex-start' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <LogOut size={15} />
             Logout
           </button>
         </div>
@@ -352,16 +371,30 @@ export default function ProjectDetail({ params }) {
                 <p style={{ marginTop:'0.75rem', fontSize:'0.88rem', color:'var(--text-muted)', maxWidth:'600px', lineHeight:1.6 }}>{project.description}</p>
               )}
             </div>
+            <div>
+              <button 
+                className="btn-primary" 
+                style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', fontSize:'0.8rem', padding:'0.5rem 1rem' }}
+                onClick={() => {
+                  const url = `${window.location.origin}/experience?project=${project._id || project.id}&client=${project.clientCode || 'CODE'}`;
+                  navigator.clipboard.writeText(url);
+                  alert('Client Share URL copied to clipboard!');
+                }}
+              >
+                <LinkIcon size={14} />
+                Copy Client Link
+              </button>
+            </div>
           </div>
         </header>
 
         {/* Tabs */}
         <div className="tabs-bar" style={{ marginBottom:'2rem' }}>
           {[
-            { key:'preview',   label:'Preview',    icon:'🖥' },
-            { key:'documents', label:'Documents',  icon:'📎' },
-            { key:'revisions', label:'Revisions',  icon:'💬', count: revisions.filter(r => r.status === 'open' || r.status === 'in-progress').length },
-            { key:'notes',     label:'Notes',      icon:'🔒' },
+            { key:'preview',   label:'Preview',    icon: <Monitor size={16} /> },
+            { key:'documents', label:'Documents',  icon: <Paperclip size={16} /> },
+            { key:'revisions', label:'Revisions',  icon: <MessageSquare size={16} />, count: revisions.filter(r => r.status === 'open' || r.status === 'in-progress').length },
+            { key:'notes',     label:'Notes',      icon: <Lock size={16} /> },
           ].map(tab => (
             <button
               key={tab.key}

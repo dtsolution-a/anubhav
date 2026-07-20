@@ -27,7 +27,7 @@ export async function POST(request) {
   const owner = await Organization.create({
     code: process.env.OWNER_CODE,
     type: 'owner',
-    name: 'DTS Media',
+    name: 'DT Solution',
     branding: {
       logoText: 'DTS',
       accentColor: '#FF7035',

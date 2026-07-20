@@ -41,8 +41,9 @@ const RevisionSchema = new mongoose.Schema({
   },
 
   thread: [ThreadMessageSchema],
-
   resolvedAt: { type: Date, default: null },
+
+  isDeletedByClient: { type: Boolean, default: false },
 }, {
   timestamps: true,
 });

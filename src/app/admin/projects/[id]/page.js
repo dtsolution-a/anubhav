@@ -66,6 +66,7 @@ export default function AdminProjectDetails({ params }) {
   const [formData,     setFormData]     = useState({});
   const [docForm,      setDocForm]      = useState({ label: '', url: '', type: 'other' });
   const [replyMsg,     setReplyMsg]     = useState({});
+  const [replyImgs,    setReplyImgs]    = useState({});
   const [expandedRev,  setExpandedRev]  = useState(null);
   const [sendingReply, setSendingReply] = useState(false);
 
@@ -183,21 +184,49 @@ export default function AdminProjectDetails({ params }) {
     } catch { showToast('Update failed', 'error'); }
   };
 
+  const handleDeleteRevision = async (revId) => {
+    if (!confirm('Are you sure you want to permanently delete this revision?')) return;
+    try {
+      const res = await fetch(`/api/revisions/${revId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setRevisions(prev => prev.filter(r => (r._id || r.id) !== revId));
+      if (expandedRev === revId) setExpandedRev(null);
+    } catch {
+      alert('Failed to delete revision');
+    }
+  };
+
+  const handlePaste = (e, revId) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        const reader = new FileReader();
+        reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
   const handleReplyRevision = async (revId) => {
     const msg = replyMsg[revId]?.trim();
-    if (!msg || sendingReply) return;
+    const img = replyImgs[revId];
+    if ((!msg && !img) || sendingReply) return;
 
     // Optimistic update
-    const optimistic = { _optimistic: true, authorType: 'owner', authorName: 'DT Solution', message: msg, timestamp: new Date().toISOString() };
+    const optimistic = { _optimistic: true, authorType: 'owner', authorName: 'DT Solution', message: msg || 'Uploaded an image', imageUrl: img, timestamp: new Date().toISOString() };
     setRevisions(prev => prev.map(r => {
       if ((r._id || r.id) !== revId) return r;
       return { ...r, thread: [...(r.thread || []), optimistic] };
     }));
     setReplyMsg(prev => ({ ...prev, [revId]: '' }));
+    setReplyImgs(prev => ({ ...prev, [revId]: null }));
     setSendingReply(true);
 
     try {
-      const res = await fetch(`/api/revisions/${revId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _addMessage: { message: msg } }) });
+      const res = await fetch(`/api/revisions/${revId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ _addMessage: { message: msg || 'Uploaded an image', imageUrl: img } }) });
       if (!res.ok) throw new Error();
       const updated = await res.json();
       setRevisions(prev => prev.map(r => (r.id || r._id) === revId ? updated : r));
@@ -441,6 +470,9 @@ export default function AdminProjectDetails({ params }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                             <strong style={{ fontSize: '1rem', fontWeight: 600 }}>{rev.title}</strong>
                             <span className={`badge badge-${(rev.status || 'open').replace('-', '')}`}>{rev.status}</span>
+                            {rev.isDeletedByClient && (
+                              <span className="badge" style={{ background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>Deleted by Client</span>
+                            )}
                           </div>
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                             Raised by <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{rev.raisedByName || 'Unknown'}</span>
@@ -448,10 +480,20 @@ export default function AdminProjectDetails({ params }) {
                             {' '}· {rev.thread?.length || 0} message{(rev.thread?.length || 0) !== 1 ? 's' : ''}
                           </div>
                         </div>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                          style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.25s ease', color: 'var(--text-muted)', flexShrink: 0, marginLeft: '1rem' }}>
-                          <polyline points="6 9 12 15 18 9"/>
-                        </svg>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <button 
+                            className="btn-ghost" 
+                            style={{ color: '#ef4444', padding: '0.3rem', fontSize: '0.8rem' }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteRevision(revId); }}
+                            title="Permanently Delete"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                          </button>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                            style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.25s ease', color: 'var(--text-muted)', flexShrink: 0 }}>
+                            <polyline points="6 9 12 15 18 9"/>
+                          </svg>
+                        </div>
                       </div>
 
                       {/* Expanded content */}
@@ -524,6 +566,7 @@ export default function AdminProjectDetails({ params }) {
                                 value={replyMsg[revId] || ''}
                                 onChange={e => setReplyMsg(prev => ({ ...prev, [revId]: e.target.value }))}
                                 onKeyDown={e => handleReplyKeyDown(e, revId)}
+                                onPaste={e => handlePaste(e, revId)}
                                 rows={1}
                                 style={{ flex: 1, minHeight: '44px', maxHeight: '120px', padding: '0.65rem 1.1rem', borderRadius: '22px', resize: 'none', border: '1.5px solid var(--bg-border)', background: 'var(--bg-base)', color: 'var(--text-primary)', fontSize: '0.88rem', outline: 'none', fontFamily: 'inherit', lineHeight: 1.5, transition: 'border-color 0.2s' }}
                                 onFocus={e => e.target.style.borderColor = 'var(--accent)'}

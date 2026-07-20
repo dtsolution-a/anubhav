@@ -70,3 +70,32 @@ export async function PUT(request, { params }) {
 
   return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
 }
+
+// DELETE — Admin hard delete, Client soft delete
+export async function DELETE(_, { params }) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+
+  await connectDB();
+
+  if (session.type === 'owner') {
+    // Hard delete for owner/admin
+    const deleted = await Revision.findByIdAndDelete(params.id);
+    if (!deleted) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json({ success: true, hardDelete: true });
+  } else if (session.type === 'client') {
+    // Soft delete for client
+    const revision = await Revision.findById(params.id);
+    if (!revision) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    
+    revision.isDeletedByClient = true;
+    await revision.save();
+    return NextResponse.json({ success: true, softDelete: true });
+  }
+
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+}

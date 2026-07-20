@@ -452,6 +452,7 @@ body {
 
 /* ── IFRAME / PREVIEW ────────────────────────────────────────── */
 .preview-wrap {
+  width: 100%;
   background: var(--bg-surface); border: 1px solid var(--bg-border);
   border-radius: var(--radius-xl); overflow: hidden;
 }

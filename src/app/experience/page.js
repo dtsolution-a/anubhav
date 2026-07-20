@@ -24,6 +24,7 @@ export default function ExperiencePage() {
   const [revTitle, setRevTitle] = useState('');
   const [revDesc, setRevDesc] = useState('');
   const [replyText, setReplyText] = useState({});
+  const [replyImgs, setReplyImgs] = useState({});
   const [expandedRevId, setExpandedRevId] = useState(null);
 
   const router = useRouter();
@@ -108,21 +109,49 @@ export default function ExperiencePage() {
     }
   };
 
+  const handlePaste = (e, revId) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        const reader = new FileReader();
+        reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  };
+
   const handleReplyRevision = async (revId) => {
     const msg = replyText[revId];
-    if (!msg) return;
+    const img = replyImgs[revId];
+    if (!msg && !img) return;
     try {
       const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _addMessage: { message: msg } })
+        body: JSON.stringify({ _addMessage: { message: msg || 'Uploaded an image', imageUrl: img } })
       });
       if (!res.ok) throw new Error();
       const updatedRev = await res.json();
       setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
       setReplyText({ ...replyText, [revId]: '' });
+      setReplyImgs({ ...replyImgs, [revId]: null });
     } catch (err) {
       alert('Failed to post reply');
+    }
+  };
+
+  const handleDeleteRevision = async (revId) => {
+    if (!confirm('Are you sure you want to delete this revision from your view?')) return;
+    try {
+      const res = await fetch(`/api/revisions/${revId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setRevisions(prev => prev.filter(r => (r._id || r.id) !== revId));
+      if (expandedRevId === revId) setExpandedRevId(null);
+    } catch (err) {
+      alert('Failed to delete revision');
     }
   };
 
@@ -318,7 +347,16 @@ export default function ExperiencePage() {
                           </div>
                           <div style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{new Date(rev.createdAt).toLocaleDateString()}</div>
                         </div>
-                        <span style={{ color:'var(--text-muted)', fontSize:'0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>▼</span>
+                        <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+                          <button 
+                            style={{ color:'#ef4444', padding:'0.3rem', fontSize:'0.8rem', background:'transparent', border:'none', cursor:'pointer' }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteRevision(revId); }}
+                            title="Delete Revision"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          <span style={{ color:'var(--text-muted)', fontSize:'0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>▼</span>
+                        </div>
                       </div>
 
                       {isExpanded && (
@@ -326,10 +364,11 @@ export default function ExperiencePage() {
                           <div style={{ display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'1.5rem' }}>
                             {(rev.thread || []).map((msg, i) => {
                               const isMe = msg.authorType === 'client';
+                              const roleStr = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
                               return (
                                 <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'85%' }}>
                                   <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.25rem', display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap:'0.4rem' }}>
-                                    <strong style={{ color: isMe ? accent : '#fff' }}>{msg.authorName}</strong>
+                                    <strong style={{ color: isMe ? accent : '#fff' }}>{roleStr}</strong>
                                     <span>{new Date(msg.timestamp || msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                                   </div>
                                   <div style={{ 
@@ -344,22 +383,27 @@ export default function ExperiencePage() {
                                   }}>
                                     {msg.message}
                                   </div>
+                                  {msg.imageUrl && (
+                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} />
+                                  )}
                                 </div>
                               );
                             })}
+                            <div ref={el => { if(el) chatEndRefs.current[revId] = el; }} />
                           </div>
                           
                           {rev.status !== 'closed' && rev.status !== 'resolved' && (
                             <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-end' }}>
                               <textarea 
                                 className="textarea" 
-                                placeholder="Reply..." 
+                                placeholder="Reply... (paste image here)" 
                                 value={replyText[revId] || ''} 
                                 onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
+                                onPaste={e => handlePaste(e, revId)}
                                 style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)' }}
                               ></textarea>
-                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none' }}>
+                                <Send size={18} />
                               </button>
                             </div>
                           )}

@@ -23,10 +23,12 @@ export async function GET(request) {
   } else if (session.type === 'agency') {
     const org = await Organization.findById(session.orgId).lean();
     query.responsibleAgencyId = org._id;
+    query.isDeletedByClient = { $ne: true };
     if (projectId) query.projectId = projectId;
   } else if (session.type === 'client') {
     // Client can only see revisions they raised
     query.raisedByOrgId = session.orgId;
+    query.isDeletedByClient = { $ne: true };
     if (projectId) query.projectId = projectId;
   } else {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, CheckCircle, Zap } from 'lucide-react';
 
 export default function WorkspaceDashboard() {
   const [session, setSession]             = useState(null);
@@ -72,10 +73,10 @@ export default function WorkspaceDashboard() {
   const deliveredProjects = projects.filter(p => p.status === 'delivered').length;
 
   const stats = [
-    { label:'Total Projects',  value: projects.length,    icon:'📁', color:'rgba(255,255,255,0.06)' },
-    { label:'Active',          value: activeProjects,      icon:'⚡', color:'rgba(251,191,36,0.06)'  },
-    { label:'Delivered',       value: deliveredProjects,   icon:'✅', color:'rgba(74,222,128,0.06)'  },
-    { label:'Open Revisions',  value: openRevisionsCount,  icon:'💬', color:'rgba(255,112,53,0.06)'  },
+    { label:'Total Projects',  value: projects.length,    icon: <FolderKanban size={24} />, color:'rgba(255,255,255,0.06)' },
+    { label:'Active',          value: activeProjects,      icon: <Zap size={24} />, color:'rgba(251,191,36,0.06)'  },
+    { label:'Delivered',       value: deliveredProjects,   icon: <CheckCircle size={24} />, color:'rgba(74,222,128,0.06)'  },
+    { label:'Open Revisions',  value: openRevisionsCount,  icon: <MessageSquare size={24} />, color:'rgba(255,112,53,0.06)'  },
   ];
 
   return (
@@ -96,15 +97,15 @@ export default function WorkspaceDashboard() {
 
         <nav className="sidebar-nav">
           <Link href="/workspace" className="sidebar-nav-item active">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <LayoutDashboard size={16} />
             Dashboard
           </Link>
           <Link href="/workspace" className="sidebar-nav-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <FolderKanban size={16} />
             Projects
           </Link>
           <Link href="/workspace" className="sidebar-nav-item">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <MessageSquare size={16} />
             Revisions
             {openRevisionsCount > 0 && (
               <span style={{ marginLeft:'auto', background:'var(--accent)', color:'#000', borderRadius:'100px', padding:'0.05rem 0.45rem', fontSize:'0.68rem', fontWeight:700 }}>
@@ -119,7 +120,7 @@ export default function WorkspaceDashboard() {
         <div className="sidebar-footer">
           <div style={{ fontFamily:'Noto Sans Devanagari', fontSize:'0.9rem', color:'var(--accent)', marginBottom:'0.5rem' }}>अनुभवः</div>
           <button onClick={handleLogout} className="btn-ghost" style={{ width:'100%', justifyContent:'flex-start' }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <LogOut size={15} />
             Logout
           </button>
         </div>
@@ -141,7 +142,7 @@ export default function WorkspaceDashboard() {
         </header>
 
         {/* Stats */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(170px, 1fr))', gap:'1rem', marginBottom:'3rem' }} className="animate-in" style={{ animationDelay:'0.1s' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(170px, 1fr))', gap:'1rem', marginBottom:'3rem', animationDelay:'0.1s' }} className="animate-in">
           {stats.map((s, i) => (
             <div
               key={i}
