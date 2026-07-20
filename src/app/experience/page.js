@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
 
 const DEVICES = [
   { id: 'desktop', label: 'Desktop',     icon: '🖥', frameClass: 'frame-desktop' },
@@ -156,8 +157,10 @@ export default function ExperiencePage() {
   };
 
   if (loading) return (
-    <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <span className="spinner" style={{ width:32, height:32 }} />
+    <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#fff', textAlign:'center', padding:'2rem' }}>
+      <span className="spinner" style={{ width:40, height:40, marginBottom:'2rem' }} />
+      <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
+      <p style={{ fontSize:'0.9rem', color:'var(--text-muted)', maxWidth:'300px', lineHeight:1.5 }}>Patience is the key to accomplishing everything.</p>
     </div>
   );
 
@@ -393,16 +396,28 @@ export default function ExperiencePage() {
                           </div>
                           
                           {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-end' }}>
+                            <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end' }}>
+                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} />
+                                <Paperclip size={20} />
+                              </label>
                               <textarea 
                                 className="textarea" 
                                 placeholder="Reply... (paste image here)" 
                                 value={replyText[revId] || ''} 
                                 onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
                                 onPaste={e => handlePaste(e, revId)}
-                                style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)' }}
+                                style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)', resize:'none' }}
+                                rows={1}
                               ></textarea>
-                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none' }}>
+                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} disabled={(!replyText[revId]?.trim() && !replyImgs[revId])} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 'not-allowed' : 'pointer', opacity: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 0.5 : 1 }}>
                                 <Send size={18} />
                               </button>
                             </div>

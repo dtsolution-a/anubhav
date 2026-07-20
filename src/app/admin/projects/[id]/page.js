@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Paperclip } from 'lucide-react';
 
 // ── Shared Admin Sidebar ────────────────────────────────────────────────────
 function AdminSidebar({ active, onLogout }) {
@@ -509,11 +510,12 @@ export default function AdminProjectDetails({ params }) {
                               const color   = authorColor(msg.authorType);
                               const time    = new Date(msg.timestamp || msg.createdAt);
                               const isValid = !isNaN(time.getTime());
+                              const roleStr = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
 
                               return (
                                 <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', animationDelay: `${i * 0.04}s` }} className="chat-msg-in">
                                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '0.3rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                                    <span style={{ fontWeight: 600, color }}>{msg.authorName}</span>
+                                    <span style={{ fontWeight: 600, color }}>{roleStr}</span>
                                     <span style={{ color: 'var(--bg-border-h)' }}>·</span>
                                     <span style={{ textTransform: 'capitalize' }}>{roleLabel(msg.authorType)}</span>
                                     {isValid && (
@@ -561,8 +563,19 @@ export default function AdminProjectDetails({ params }) {
                           {/* Chat input */}
                           {rev.status !== 'closed' && rev.status !== 'resolved' ? (
                             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', padding: '1rem 1.5rem', background: 'var(--bg-surface-2)', borderTop: '1px solid var(--bg-border)' }}>
+                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} />
+                                <Paperclip size={20} />
+                              </label>
                               <textarea
-                                placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                                placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
                                 value={replyMsg[revId] || ''}
                                 onChange={e => setReplyMsg(prev => ({ ...prev, [revId]: e.target.value }))}
                                 onKeyDown={e => handleReplyKeyDown(e, revId)}
@@ -574,8 +587,8 @@ export default function AdminProjectDetails({ params }) {
                               />
                               <button
                                 onClick={() => handleReplyRevision(revId)}
-                                disabled={!replyMsg[revId]?.trim() || sendingReply}
-                                style={{ width: '44px', height: '44px', borderRadius: '50%', background: replyMsg[revId]?.trim() ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: replyMsg[revId]?.trim() ? '#000' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s', cursor: replyMsg[revId]?.trim() ? 'pointer' : 'not-allowed', border: 'none', boxShadow: replyMsg[revId]?.trim() ? '0 4px 12px var(--accent-glow)' : 'none' }}
+                                disabled={(!replyMsg[revId]?.trim() && !replyImgs[revId]) || sendingReply}
+                                style={{ width: '44px', height: '44px', borderRadius: '50%', background: (replyMsg[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyMsg[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s', cursor: (replyMsg[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border: 'none', boxShadow: (replyMsg[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
                               >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                               </button>

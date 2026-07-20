@@ -52,7 +52,25 @@ export async function POST(request) {
     }
 
     // Look up in DB
-    const org = await Organization.findOne({ code: upperCode, isActive: true });
+    let org = await Organization.findOne({ code: upperCode, isActive: true });
+    
+    // If not found, check if a Project exists with this clientCode. 
+    // If yes, dynamically create the client Organization.
+    if (!org) {
+      const Project = (await import('@/models/Project')).default;
+      const project = await Project.findOne({ clientCode: upperCode });
+      if (project) {
+        org = await Organization.create({
+          code: upperCode,
+          type: 'client',
+          name: `Client - ${upperCode}`, // Default name, can be updated later
+          isActive: true
+        });
+        project.clientOrgId = org._id;
+        await project.save();
+      }
+    }
+
     if (!org) {
       return NextResponse.json({ error: 'Invalid ID. Please check and try again.' }, { status: 401 });
     }

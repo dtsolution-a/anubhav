@@ -35,7 +35,7 @@ export default function ProjectDetail({ params }) {
   };
 
   const [replyTexts, setReplyTexts] = useState({});   // per-revision reply text
-  const [replyImages, setReplyImages] = useState({}); // per-revision attached images
+  const [replyImgs, setReplyImgs] = useState({}); // per-revision attached images
   const [sendingReply, setSendingReply] = useState(false);
 
   // Notes state
@@ -162,26 +162,25 @@ export default function ProjectDetail({ params }) {
 
   // ── Send reply (optimistic update) ─────────────────────────────
   const submitReply = async (revId) => {
-    const msg = replyTexts[revId]?.trim();
-    const img = replyImages[revId];
+    const msg = replyTexts[revId];
+    const img = replyImgs[revId];
     if ((!msg && !img) || sendingReply) return;
 
-    // Optimistic update — add message immediately
+    // optimistic
+    const optId = Date.now().toString();
     const optimisticMsg = {
+      _id: optId,
       _optimistic: true,
-      authorOrgId: session?.orgId,
+      authorOrgId: String(session?.orgId),
       authorType: session?.type,
-      authorName: session?.user?.name || 'Me',
+      authorName: session?.org?.name || 'You',
       message: msg || 'Uploaded an image',
       imageUrl: img,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date().toISOString()
     };
-    setRevisions(prev => prev.map(r => {
-      if ((r._id || r.id) !== revId) return r;
-      return { ...r, thread: [...(r.thread || []), optimisticMsg] };
-    }));
+    setRevisions(prev => prev.map(r => r.id === revId || r._id === revId ? { ...r, thread: [...(r.thread||[]), optimisticMsg] } : r));
     setReplyTexts(prev => ({ ...prev, [revId]: '' }));
-    setReplyImages(prev => ({ ...prev, [revId]: null }));
+    setReplyImgs(prev => ({ ...prev, [revId]: null }));
     setSendingReply(true);
 
     try {
@@ -552,10 +551,11 @@ export default function ProjectDetail({ params }) {
                               <p style={{ color:'var(--text-muted)', fontSize:'0.85rem', textAlign:'center', padding:'1rem' }}>No messages yet. Start the conversation below.</p>
                             )}
                             {(rev.thread || []).map((msg, i) => {
-                              const isMe     = msg.authorOrgId === myOrgId;
+                              const isMe     = String(msg.authorOrgId) === String(myOrgId);
                               const color    = authorColor(msg.authorType);
                               const time     = new Date(msg.timestamp || msg.createdAt);
                               const isValid  = !isNaN(time.getTime());
+                              const roleStr  = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
 
                               return (
                                 <div
@@ -564,7 +564,7 @@ export default function ProjectDetail({ params }) {
                                   style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start', animationDelay:`${i * 0.04}s` }}
                                 >
                                   <div className="chat-meta" style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.3rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
-                                    <span style={{ fontWeight:600, color }}>{msg.authorName}</span>
+                                    <span style={{ fontWeight:600, color }}>{roleStr}</span>
                                     <span style={{ color:'var(--bg-border-h)' }}>·</span>
                                     <span>{roleLabel(msg.authorType)}</span>
                                     {isValid && (
@@ -621,19 +621,31 @@ export default function ProjectDetail({ params }) {
                           {/* Chat Input */}
                           {rev.status !== 'closed' && rev.status !== 'resolved' ? (
                             <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
+                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} />
+                                <Paperclip size={20} />
+                              </label>
                               <textarea
                                 className="chat-textarea"
-                                placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+                                placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
                                 value={replyTexts[revId] || ''}
                                 onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
                                 onKeyDown={e => handleReplyKeyDown(e, revId)}
+                                onPaste={e => handlePaste(e, revId)}
                                 rows={1}
                                 style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
                               />
                               <button
                                 onClick={() => submitReply(revId)}
-                                disabled={!replyTexts[revId]?.trim() || sendingReply}
-                                style={{ width:'44px', height:'44px', borderRadius:'50%', background: replyTexts[revId]?.trim() ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: replyTexts[revId]?.trim() ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: replyTexts[revId]?.trim() ? 'pointer' : 'not-allowed', border:'none', boxShadow: replyTexts[revId]?.trim() ? '0 4px 12px var(--accent-glow)' : 'none' }}
+                                disabled={(!replyTexts[revId]?.trim() && !replyImgs[revId]) || sendingReply}
+                                style={{ width:'44px', height:'44px', borderRadius:'50%', background: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border:'none', boxShadow: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
                               >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                               </button>
