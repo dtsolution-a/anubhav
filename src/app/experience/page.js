@@ -27,6 +27,7 @@ export default function ExperiencePage() {
   const [replyText, setReplyText] = useState({});
   const [replyImgs, setReplyImgs] = useState({});
   const [expandedRevId, setExpandedRevId] = useState(null);
+  const chatEndRefs = useRef({});
 
   const router = useRouter();
   const fsRef  = useRef(null);
