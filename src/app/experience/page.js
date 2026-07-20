@@ -27,6 +27,7 @@ export default function ExperiencePage() {
   const [replyText, setReplyText] = useState({});
   const [replyImgs, setReplyImgs] = useState({});
   const [expandedRevId, setExpandedRevId] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
   const chatEndRefs = useRef({});
 
   const router = useRouter();
@@ -388,7 +389,12 @@ export default function ExperiencePage() {
                                     {msg.message}
                                   </div>
                                   {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} />
+                                    <img 
+                                      src={msg.imageUrl} 
+                                      alt="attachment" 
+                                      onClick={() => setPreviewImage(msg.imageUrl)}
+                                      style={{ cursor: 'pointer', maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} 
+                                    />
                                   )}
                                 </div>
                               );
@@ -448,6 +454,16 @@ export default function ExperiencePage() {
           to { transform: translateX(0); }
         }
       `}} />
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          onClick={() => setPreviewImage(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}
+        >
+          <img src={previewImage} alt="preview" style={{ maxHeight: '90vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }} />
+        </div>
+      )}
     </div>
   );
 }
+

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { FolderKanban, Zap, MessageSquare, Building } from 'lucide-react';
 
 // ── Shared Admin Sidebar ────────────────────────────────────────────────────
 function AdminSidebar({ active, onLogout }) {
@@ -77,10 +78,10 @@ export default function AdminDashboard() {
   };
 
   const statCards = [
-    { label: 'Total Projects',  value: stats.projects,       icon: '📁', color: 'rgba(255,255,255,0.04)' },
-    { label: 'Active Projects', value: stats.activeProjects,  icon: '⚡', color: 'rgba(251,191,36,0.06)'  },
-    { label: 'Open Revisions',  value: stats.openRevisions,   icon: '💬', color: 'rgba(255,112,53,0.06)'  },
-    { label: 'Total Orgs',      value: stats.orgs,            icon: '🏢', color: 'rgba(74,222,128,0.06)'  },
+    { label: 'Total Projects',  value: stats.projects,       icon: <FolderKanban size={24} />, color: 'rgba(255,255,255,0.04)' },
+    { label: 'Active Projects', value: stats.activeProjects,  icon: <Zap size={24} />, color: 'rgba(251,191,36,0.06)'  },
+    { label: 'Open Revisions',  value: stats.openRevisions,   icon: <MessageSquare size={24} />, color: 'rgba(255,112,53,0.06)'  },
+    { label: 'Total Orgs',      value: stats.orgs,            icon: <Building size={24} />, color: 'rgba(74,222,128,0.06)'  },
   ];
 
   return (

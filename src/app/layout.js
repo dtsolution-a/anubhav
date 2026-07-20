@@ -17,7 +17,10 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <script dangerouslySetInnerHTML={{ __html: 'document.addEventListener("contextmenu", function(e) { e.preventDefault(); });' }} />
+      </body>
     </html>
   );
 }

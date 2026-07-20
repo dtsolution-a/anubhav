@@ -7,7 +7,7 @@ import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 
 export async function GET() {
-  const session = await getSession();
+  const session = await getSession('client');
   if (!session || session.type !== 'client') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -34,6 +34,7 @@ export async function GET() {
 
   return NextResponse.json({
     project: {
+      _id: project._id,
       id: project._id,
       title: project.title,
       previewUrl: project.previewUrl,

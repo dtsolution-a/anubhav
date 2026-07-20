@@ -32,7 +32,8 @@ export async function middleware(request) {
   // ── AUTH GUARD ────────────────────────────────────────────────
   const matched = PROTECTED.find(p => pathname.startsWith(p.path));
   if (matched) {
-    const token = request.cookies.get('anx_token')?.value;
+    const tokenName = `anx_token_${matched.role}`;
+    const token = request.cookies.get(tokenName)?.value;
     if (!token) {
       return NextResponse.redirect(new URL('/', request.url));
     }
@@ -46,7 +47,7 @@ export async function middleware(request) {
     } catch {
       // Invalid/expired token
       const res = NextResponse.redirect(new URL('/', request.url));
-      res.cookies.delete('anx_token');
+      res.cookies.delete(tokenName);
       return res;
     }
   }

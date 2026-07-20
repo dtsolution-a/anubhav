@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Crown, Briefcase, User } from 'lucide-react';
 
 function AdminSidebar({ active, onLogout }) {
   const navItems = [
@@ -180,8 +181,8 @@ export default function AdminOrgs() {
                     <td>{org.name}</td>
                     <td>{org.code}</td>
                     <td>
-                      <span className="badge">
-                        {org.type === 'owner' ? '👑 Owner' : org.type === 'agency' ? '💼 Agency' : '👤 Client'}
+                      <span className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                        {org.type === 'owner' ? <><Crown size={14} /> Owner</> : org.type === 'agency' ? <><Briefcase size={14} /> Agency</> : <><User size={14} /> Client</>}
                       </span>
                     </td>
                     <td>{new Date(org.createdAt).toLocaleDateString()}</td>

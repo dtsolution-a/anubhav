@@ -11,19 +11,34 @@ export default function LandingPage() {
   const inputRef = useRef(null);
   const router   = useRouter();
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const access = params.get('access');
+    if (access) {
+      try {
+        const decoded = atob(access);
+        setCode(decoded);
+        handleSubmit(null, decoded);
+      } catch (err) {
+        triggerError('Invalid access link.');
+      }
+    } else {
+      inputRef.current?.focus();
+    }
+  }, []);
+
   if (loading) return (
     <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#fff', textAlign:'center', padding:'2rem' }}>
       <span className="spinner" style={{ width:40, height:40, marginBottom:'2rem' }} />
-      <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
+      <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>अ न भ व :</h2>
       <p style={{ fontSize:'0.9rem', color:'var(--text-muted)', maxWidth:'300px', lineHeight:1.5 }}>Patience is the key to accomplishing everything.</p>
     </div>
   );
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  async function handleSubmit(e) {
+  async function handleSubmit(e, overrideCode) {
     e?.preventDefault();
-    const trimmed = code.trim().toUpperCase();
+    const finalCode = (overrideCode || code || '').toString();
+    const trimmed = finalCode.trim().toUpperCase();
     if (!trimmed) { triggerError('Please enter your Experience ID.'); return; }
 
     setLoading(true);

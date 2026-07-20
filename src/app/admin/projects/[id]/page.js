@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Paperclip } from 'lucide-react';
+import { Info, Paperclip, MessageSquare } from 'lucide-react';
 
 // ── Shared Admin Sidebar ────────────────────────────────────────────────────
 function AdminSidebar({ active, onLogout }) {
@@ -312,7 +312,7 @@ export default function AdminProjectDetails({ params }) {
                 {project.deliveredOn && <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Delivered: {project.deliveredOn}</span>}
               </div>
             </div>
-            {project.previewUrl && (
+            {project.previewUrl && project.status?.toLowerCase() === 'delivered' && (
               <a href={project.previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ fontSize: '0.83rem' }}>Open Preview ↗</a>
             )}
           </div>
@@ -321,9 +321,9 @@ export default function AdminProjectDetails({ params }) {
         {/* Tabs */}
         <div className="tabs-bar" style={{ marginBottom: '2rem' }}>
           {[
-            { key: 'details',   label: 'Details',   icon: '⚙' },
-            { key: 'documents', label: 'Documents',  icon: '📎' },
-            { key: 'revisions', label: 'Revisions',  icon: '💬', count: openRevCount },
+            { key: 'details',   label: 'Details',   icon: <Info size={16} /> },
+            { key: 'documents', label: 'Documents',  icon: <Paperclip size={16} /> },
+            { key: 'revisions', label: 'Revisions',  icon: <MessageSquare size={16} />, count: openRevCount },
           ].map(t => (
             <button key={t.key} className={`tab-btn ${tab === t.key ? 'active' : ''}`} onClick={() => setTab(t.key)}>
               <span>{t.icon}</span>{t.label}

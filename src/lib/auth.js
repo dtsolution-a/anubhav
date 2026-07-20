@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 
-const TOKEN_NAME = 'anx_token';
 const JWT_SECRET = () => process.env.JWT_SECRET;
 
 // Token expiry by org type
@@ -43,11 +42,38 @@ export function verifyToken(token) {
 /**
  * Read + verify session from the request cookie (server-side)
  */
-export async function getSession() {
+export async function getSession(preferredRole = null) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(TOKEN_NAME)?.value;
-  if (!token) return null;
-  return verifyToken(token);
+  let role = preferredRole;
+
+  if (!role) {
+    try {
+      const headersList = await headers();
+      const referer = headersList.get('referer') || '';
+      if (referer.includes('/experience')) role = 'client';
+      else if (referer.includes('/workspace')) role = 'agency';
+      else if (referer.includes('/admin')) role = 'owner';
+    } catch {
+      // ignore
+    }
+  }
+  
+  if (role) {
+    const token = cookieStore.get(`anx_token_${role}`)?.value;
+    if (token) {
+      const sess = verifyToken(token);
+      if (sess) return sess;
+    }
+  }
+
+  for (const r of ['owner', 'agency', 'client']) {
+    const token = cookieStore.get(`anx_token_${r}`)?.value;
+    if (token) {
+      const sess = verifyToken(token);
+      if (sess) return sess;
+    }
+  }
+  return null;
 }
 
 /**
@@ -55,7 +81,7 @@ export async function getSession() {
  */
 export function tokenCookieOptions(type) {
   return {
-    name: TOKEN_NAME,
+    name: `anx_token_${type}`,
     maxAge: MAX_AGE[type] || MAX_AGE.client,
     httpOnly: true,
     sameSite: 'lax',
@@ -63,5 +89,3 @@ export function tokenCookieOptions(type) {
     secure: process.env.NODE_ENV === 'production',
   };
 }
-
-export { TOKEN_NAME };

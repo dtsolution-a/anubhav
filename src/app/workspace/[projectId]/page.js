@@ -22,6 +22,7 @@ export default function ProjectDetail({ params }) {
 
   // Revision state
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false);
+  const [isAddingNote, setIsAddingNote]               = useState(false);
   const [revisionTitle, setRevisionTitle] = useState('');
   const [revisionDesc, setRevisionDesc]   = useState('');
   const [revisionImg, setRevisionImg]     = useState('');
@@ -34,9 +35,10 @@ export default function ProjectDetail({ params }) {
     return 'Agency';
   };
 
-  const [replyTexts, setReplyTexts] = useState({});   // per-revision reply text
-  const [replyImgs, setReplyImgs] = useState({}); // per-revision attached images
+  const [replyTexts, setReplyTexts] = useState({});
+  const [replyImgs, setReplyImgs] = useState({});
   const [sendingReply, setSendingReply] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   // Notes state
   const [noteLabel, setNoteLabel] = useState('');
@@ -241,20 +243,23 @@ export default function ProjectDetail({ params }) {
         body: JSON.stringify({ projectId, label: noteLabel, value: noteValue })
       });
       if (!res.ok) throw new Error();
-      const newNote = await res.json();
-      setNotes(prev => [...prev, newNote]);
+      const updatedNotes = await res.json();
+      setNotes(updatedNotes);
       setNoteLabel(''); setNoteValue('');
+      setIsAddingNote(false);
     } catch { alert('Failed to add note'); }
   };
 
   const deleteNote = async (entryId) => {
     try {
-      await fetch('/api/notes', {
+      const res = await fetch('/api/notes', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ projectId, entryId })
       });
-      setNotes(prev => prev.filter(n => n.id !== entryId));
+      if (!res.ok) throw new Error();
+      const updatedNotes = await res.json();
+      setNotes(updatedNotes);
     } catch { alert('Failed to delete note'); }
   };
 
@@ -339,7 +344,7 @@ export default function ProjectDetail({ params }) {
       </aside>
 
       {/* ── Main Content ── */}
-      <main className="main-content">
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column' }}>
         {/* Back link */}
         <div style={{ marginBottom:'1.5rem' }}>
           <Link href="/workspace" style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', color:'var(--text-muted)', fontSize:'0.83rem', textDecoration:'none', transition:'color 0.2s' }}
@@ -358,8 +363,8 @@ export default function ProjectDetail({ params }) {
               <h1 className="page-title" style={{ marginBottom:'0.6rem' }}>{project.title}</h1>
               <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', flexWrap:'wrap' }}>
                 <span className={`badge badge-${project.status?.toLowerCase()}`}>{project.status}</span>
-                {project.previewUrl && (
-                  <a href={project.previewUrl} target="_blank" rel="noreferrer"
+                {project.previewUrl && project.status?.toLowerCase() === 'delivered' && (
+                  <a href={project.previewUrl} target="_blank" rel="noreferrer" 
                     style={{ display:'inline-flex', alignItems:'center', gap:'0.3rem', color:'var(--accent)', fontSize:'0.82rem', textDecoration:'none' }}>
                     Open Live ↗
                   </a>
@@ -372,14 +377,18 @@ export default function ProjectDetail({ params }) {
                 <p style={{ marginTop:'0.75rem', fontSize:'0.88rem', color:'var(--text-muted)', maxWidth:'600px', lineHeight:1.6 }}>{project.description}</p>
               )}
             </div>
-            <div>
+            <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+              <div style={{ fontSize:'0.85rem', color:'var(--text-muted)', background:'rgba(255,255,255,0.03)', padding:'0.4rem 0.8rem', borderRadius:'6px', border:'1px solid var(--bg-border)' }}>
+                Client ID: <strong style={{ color:'var(--accent)', letterSpacing:'0.5px' }}>{project.clientCode || 'N/A'}</strong>
+              </div>
               <button 
                 className="btn-primary" 
                 style={{ display:'inline-flex', alignItems:'center', gap:'0.4rem', fontSize:'0.8rem', padding:'0.5rem 1rem' }}
                 onClick={() => {
-                  const url = `${window.location.origin}/experience?project=${project._id || project.id}&client=${project.clientCode || 'CODE'}`;
+                  const encoded = btoa(project.clientCode || 'CODE');
+                  const url = `${window.location.origin}/?access=${encoded}`;
                   navigator.clipboard.writeText(url);
-                  alert('Client Share URL copied to clipboard!');
+                  alert('Secure Client Login Link copied to clipboard!');
                 }}
               >
                 <LinkIcon size={14} />
@@ -440,7 +449,7 @@ export default function ProjectDetail({ params }) {
                   <div className="dot dot-r"/><div className="dot dot-y"/><div className="dot dot-g"/>
                 </div>
                 <div className="toolbar-url">
-                  {project.previewUrl || 'No preview URL set'}
+                  {project.status?.toLowerCase() === 'delivered' ? (project.previewUrl || 'No preview URL set') : 'Preview Mode - Link Hidden'}
                 </div>
               </div>
               <div className={`iframe-area frame-${deviceFrame}`}>
@@ -484,8 +493,8 @@ export default function ProjectDetail({ params }) {
 
         {/* ── Revisions Tab ── */}
         {activeTab === 'revisions' && (
-          <div className="animate-in">
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'2rem' }}>
+          <div className="animate-in" style={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'2rem', flexShrink: 0 }}>
               <div>
                 <h2 className="section-title" style={{ marginBottom:'0.25rem' }}>Revisions & Feedback</h2>
                 <p style={{ fontSize:'0.83rem', color:'var(--text-muted)' }}>
@@ -505,171 +514,199 @@ export default function ProjectDetail({ params }) {
                 <p className="empty-state-sub">No revisions have been raised for this project.</p>
               </div>
             ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-                {revisions.map(rev => {
-                  const revId      = rev._id || rev.id;
-                  const isExpanded = expandedRevisionId === revId;
-                  const myOrgId    = session?.orgId;
-
-                  return (
-                    <div key={revId} className="rev-card" style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-xl)', overflow:'hidden', transition:'border-color 0.2s, box-shadow 0.2s', boxShadow: isExpanded ? '0 8px 32px rgba(0,0,0,0.3)' : 'none' }}>
-                      {/* Card Header */}
+              <div style={{ display:'flex', gap:'1.5rem', flex: 1, minHeight:'500px' }}>
+                {/* Left pane: Revision list (30%) */}
+                <div className="custom-scrollbar" style={{ flex:'0 0 32%', display:'flex', flexDirection:'column', gap:'0.75rem', overflowY:'auto', paddingRight:'0.5rem' }}>
+                  {revisions.map(rev => {
+                    const revId = rev._id || rev.id;
+                    const isExpanded = expandedRevisionId === revId;
+                    return (
                       <div
-                        className="rev-card-header"
-                        style={{ padding:'1.25rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer', background: isExpanded ? 'rgba(255,255,255,0.015)' : 'transparent', transition:'background 0.2s', userSelect:'none' }}
-                        onClick={() => setExpandedRevisionId(isExpanded ? null : revId)}
+                        key={revId}
+                        onClick={() => setExpandedRevisionId(revId)}
+                        style={{
+                          background: isExpanded ? 'rgba(255,159,0,0.08)' : 'var(--bg-surface-2)',
+                          border: isExpanded ? '1px solid var(--accent-secondary)' : '1px solid var(--bg-border)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '1rem 1.25rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
                       >
-                        <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'0.35rem', flexWrap:'wrap' }}>
-                            <strong style={{ fontSize:'1rem', fontWeight:600 }}>{rev.title}</strong>
-                            <span className={`badge badge-${(rev.status || 'open').replace('-', '')}`}>{rev.status}</span>
-                          </div>
-                          <div style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>
-                            Raised by{' '}
-                            <span style={{ color:'var(--text-secondary)', fontWeight:500 }}>{rev.raisedByName || 'Unknown'}</span>
-                            {' '}· {new Date(rev.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}
-                            {' '}· {rev.thread?.length || 0} message{(rev.thread?.length || 0) !== 1 ? 's' : ''}
-                          </div>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.4rem', gap:'0.5rem' }}>
+                          <strong style={{ fontSize:'0.95rem', fontWeight:600, color: isExpanded ? 'var(--text-primary)' : 'var(--text-secondary)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+                            {rev.title}
+                          </strong>
+                          <span className={`badge badge-${(rev.status || 'open').replace('-', '')}`} style={{ transform:'scale(0.85)', transformOrigin:'right' }}>
+                            {rev.status}
+                          </span>
                         </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', marginLeft:'1rem', flexShrink:0 }}>
-                          <svg
-                            width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                            style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)', transition:'transform 0.25s ease', color:'var(--text-muted)' }}
-                          >
-                            <polyline points="6 9 12 15 18 9"/>
-                          </svg>
+                        <div style={{ fontSize:'0.75rem', color:'var(--text-muted)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <span>{rev.raisedByName || 'Unknown'}</span>
+                          <span>{new Date(rev.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short' })}</span>
                         </div>
+                        {rev.thread?.length > 0 && (
+                          <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginTop:'0.4rem' }}>
+                            {rev.thread.length} message{rev.thread.length !== 1 ? 's' : ''}
+                          </div>
+                        )}
                       </div>
+                    );
+                  })}
+                </div>
 
-                      {/* Expanded chat */}
-                      {isExpanded && (
-                        <div style={{ borderTop:'1px solid var(--bg-border)' }}>
-                          {/* Chat messages */}
-                          <div
-                            className="chat-container"
-                            style={{ display:'flex', flexDirection:'column', gap:'1rem', padding:'1.5rem', maxHeight:'420px', overflowY:'auto' }}
-                          >
-                            {(rev.thread || []).length === 0 && (
-                              <p style={{ color:'var(--text-muted)', fontSize:'0.85rem', textAlign:'center', padding:'1rem' }}>No messages yet. Start the conversation below.</p>
-                            )}
-                            {(rev.thread || []).map((msg, i) => {
-                              const isMe     = String(msg.authorOrgId) === String(myOrgId);
-                              const color    = authorColor(msg.authorType);
-                              const time     = new Date(msg.timestamp || msg.createdAt);
-                              const isValid  = !isNaN(time.getTime());
-                              const roleStr  = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
+                {/* Right pane: Active Chat (70%) */}
+                <div style={{ flex:'1 1 auto', background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-xl)', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+                  {(() => {
+                    if (!expandedRevisionId) return (
+                      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'var(--text-muted)' }}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" style={{ marginBottom:'1rem', opacity:0.5 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                        <p>Select a revision to view conversation</p>
+                      </div>
+                    );
 
-                              return (
-                                <div
-                                  key={i}
-                                  className={`chat-row ${isMe ? 'mine' : 'theirs'} chat-msg-in`}
-                                  style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start', animationDelay:`${i * 0.04}s` }}
-                                >
-                                  <div className="chat-meta" style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.3rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
-                                    <span style={{ fontWeight:600, color }}>{roleStr}</span>
-                                    <span style={{ color:'var(--bg-border-h)' }}>·</span>
-                                    <span>{roleLabel(msg.authorType)}</span>
-                                    {isValid && (
-                                      <>
-                                        <span style={{ color:'var(--bg-border-h)' }}>·</span>
-                                        <span>{time.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
-                                      </>
-                                    )}
-                                    {msg._optimistic && <span style={{ opacity:0.5, fontStyle:'italic' }}>Sending…</span>}
-                                  </div>
-                                  <div
-                                    className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}
-                                    style={{
-                                      padding:'0.85rem 1.15rem',
-                                      borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                                      maxWidth:'72%',
-                                      fontSize:'0.88rem',
-                                      lineHeight:1.55,
-                                      wordBreak:'break-word',
-                                      background: isMe ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.06)',
-                                      color: isMe ? '#0a0807' : 'var(--text-primary)',
-                                      border: isMe ? 'none' : '1px solid rgba(255,255,255,0.08)',
-                                      opacity: msg._optimistic ? 0.7 : 1,
-                                      transition:'opacity 0.3s',
-                                    }}
-                                  >
-                                    {msg.message}
-                                  </div>
-                                  {msg.imageUrl && (
-                                    <img src={msg.imageUrl} alt="attachment" style={{ maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)' }} />
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {/* Scroll anchor */}
-                            <div ref={el => { if (el) chatEndRefs.current[revId] = el; }} />
+                    const rev = revisions.find(r => (r._id || r.id) === expandedRevisionId);
+                    if (!rev) return null;
+                    const revId = rev._id || rev.id;
+                    const myOrgId = session?.orgId;
+
+                    return (
+                      <>
+                        <div className="rev-card-header" style={{ padding:'1.25rem 1.5rem', background:'var(--bg-surface-2)', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <div>
+                            <strong style={{ fontSize:'1.1rem', fontWeight:600, display:'block', marginBottom:'0.2rem' }}>{rev.title}</strong>
+                            <div style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>Raised by {rev.raisedByName || 'Unknown'}</div>
                           </div>
-
-                          {/* Status actions */}
                           {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <div style={{ display:'flex', gap:'0.5rem', padding:'0 1.5rem 0.75rem', flexWrap:'wrap' }}>
-                              <button className="btn-ghost" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'in-progress')}>
+                            <div style={{ display:'flex', gap:'0.5rem' }}>
+                              <button className="btn-ghost" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem' }} onClick={() => updateRevisionStatus(revId, 'in-progress')}>
                                 Mark In-Progress
                               </button>
-                              <button className="btn-ghost" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'resolved')}>
+                              <button className="btn-ghost" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem', color:'var(--accent)' }} onClick={() => updateRevisionStatus(revId, 'resolved')}>
                                 ✓ Resolve
                               </button>
-                              <button className="btn-danger" style={{ fontSize:'0.78rem', padding:'0.4rem 0.85rem' }} onClick={() => updateRevisionStatus(revId, 'closed')}>
+                              <button className="btn-danger" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem' }} onClick={() => updateRevisionStatus(revId, 'closed')}>
                                 Close
                               </button>
                             </div>
                           )}
-
-                          {/* Chat Input */}
-                          {rev.status !== 'closed' && rev.status !== 'resolved' ? (
-                            <>
-                              {replyImgs[revId] && (
-                                <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block', padding: '0 1.5rem' }}>
-                                  <img src={replyImgs[revId]} alt="preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--bg-border)' }} />
-                                  <button onClick={() => setReplyImgs(prev => ({...prev, [revId]: null}))} style={{ position: 'absolute', top: -8, right: 16, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                                </div>
-                              )}
-                              <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
-                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
-                                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                      const reader = new FileReader();
-                                      reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }} />
-                                  <Paperclip size={20} />
-                                </label>
-                                <textarea
-                                  className="chat-textarea"
-                                  placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
-                                  value={replyTexts[revId] || ''}
-                                  onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
-                                  onKeyDown={e => handleReplyKeyDown(e, revId)}
-                                  onPaste={e => handlePaste(e, revId)}
-                                  rows={1}
-                                  style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
-                                />
-                                <button
-                                  onClick={() => submitReply(revId)}
-                                  disabled={(!replyTexts[revId]?.trim() && !replyImgs[revId]) || sendingReply}
-                                  style={{ width:'44px', height:'44px', borderRadius:'50%', background: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border:'none', boxShadow: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
-                                >
-                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                                </button>
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)', fontSize:'0.82rem', color:'var(--text-muted)', textAlign:'center' }}>
-                              This revision is {rev.status}. No further replies.
-                            </div>
-                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+
+                        {/* Chat messages */}
+                        <div
+                          className="chat-container custom-scrollbar"
+                          style={{ flex:1, maxHeight:'none', display:'flex', flexDirection:'column', gap:'1rem', padding:'1.5rem', overflowY:'auto' }}
+                        >
+                          {(rev.thread || []).length === 0 && (
+                            <p style={{ color:'var(--text-muted)', fontSize:'0.85rem', textAlign:'center', padding:'1rem' }}>No messages yet. Start the conversation below.</p>
+                          )}
+                          {(rev.thread || []).map((msg, i) => {
+                            const isMe     = msg.authorType === 'agency';
+                            const color    = authorColor(msg.authorType);
+                            const time     = new Date(msg.timestamp || msg.createdAt);
+                            const isValid  = !isNaN(time.getTime());
+                            const roleStr  = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
+
+                            return (
+                              <div
+                                key={i}
+                                className={`chat-row ${isMe ? 'mine' : 'theirs'} chat-msg-in`}
+                                style={{ display:'flex', flexDirection:'column', alignItems: isMe ? 'flex-end' : 'flex-start', animationDelay:`${i * 0.04}s`, marginTop: i === 0 ? 'auto' : undefined }}
+                              >
+                                <div className="chat-meta" style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.3rem', display:'flex', gap:'0.4rem', alignItems:'center' }}>
+                                  <span style={{ fontWeight:600, color }}>{roleStr}</span>
+                                  <span style={{ color:'var(--bg-border-h)' }}>·</span>
+                                  <span>{roleLabel(msg.authorType)}</span>
+                                  {isValid && (
+                                    <>
+                                      <span style={{ color:'var(--bg-border-h)' }}>·</span>
+                                      <span>{time.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</span>
+                                    </>
+                                  )}
+                                  {msg._optimistic && <span style={{ opacity:0.5, fontStyle:'italic' }}>Sending…</span>}
+                                </div>
+                                <div
+                                  className={`chat-bubble ${isMe ? 'mine' : 'theirs'}`}
+                                  style={{
+                                    padding:'0.85rem 1.15rem',
+                                    borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                    maxWidth:'72%',
+                                    fontSize:'0.88rem',
+                                    lineHeight:1.55,
+                                    wordBreak:'break-word',
+                                    background: isMe ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.06)',
+                                    color: isMe ? '#0a0807' : 'var(--text-primary)',
+                                    border: isMe ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                                    opacity: msg._optimistic ? 0.7 : 1,
+                                    transition:'opacity 0.3s',
+                                  }}
+                                >
+                                  {msg.message}
+                                </div>
+                                {msg.imageUrl && (
+                                  <img 
+                                    src={msg.imageUrl} 
+                                    alt="attachment" 
+                                    onClick={() => setPreviewImage(msg.imageUrl)}
+                                    style={{ cursor: 'pointer', maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)' }} 
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                          {/* Scroll anchor */}
+                          <div ref={el => { if (el) chatEndRefs.current[revId] = el; }} />
+                        </div>
+
+                        {/* Chat Input */}
+                        {rev.status !== 'closed' && rev.status !== 'resolved' ? (
+                          <div style={{ marginTop:'auto' }}>
+                            {replyImgs[revId] && (
+                              <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block', padding: '0 1.5rem' }}>
+                                <img src={replyImgs[revId]} alt="preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--bg-border)' }} />
+                                <button onClick={() => setReplyImgs(prev => ({...prev, [revId]: null}))} style={{ position: 'absolute', top: -8, right: 16, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                              </div>
+                            )}
+                            <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
+                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                  const file = e.target.files[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                    reader.readAsDataURL(file);
+                                  }
+                                }} />
+                                <Paperclip size={20} />
+                              </label>
+                              <textarea
+                                className="chat-textarea custom-scrollbar"
+                                placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
+                                value={replyTexts[revId] || ''}
+                                onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
+                                onKeyDown={e => handleReplyKeyDown(e, revId)}
+                                onPaste={e => handlePaste(e, revId)}
+                                rows={1}
+                                style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
+                              />
+                              <button
+                                onClick={() => submitReply(revId)}
+                                disabled={(!replyTexts[revId]?.trim() && !replyImgs[revId]) || sendingReply}
+                                style={{ width:'44px', height:'44px', borderRadius:'50%', background: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border:'none', boxShadow: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ marginTop:'auto', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)', fontSize:'0.82rem', color:'var(--text-muted)', textAlign:'center' }}>
+                            This revision is {rev.status}. No further replies.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>
@@ -686,29 +723,22 @@ export default function ProjectDetail({ params }) {
               </div>
             </div>
 
-            <h2 className="section-title" style={{ marginBottom:'1.5rem' }}>Private Notes</h2>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'1.5rem' }}>
+              <h2 className="section-title" style={{ marginBottom: 0 }}>Private Notes</h2>
+              {!isAddingNote && (
+                <button className="btn-primary" onClick={() => setIsAddingNote(true)} style={{ padding:'0.5rem 1rem', fontSize:'0.82rem' }}>
+                  + Add New Note
+                </button>
+              )}
+            </div>
 
-            <form onSubmit={submitNote} style={{ marginBottom:'2rem', display:'flex', flexDirection:'column', gap:'1rem', background:'var(--bg-surface-2)', padding:'1.5rem', borderRadius:'var(--radius-lg)', border:'1px solid var(--bg-border)' }}>
-              <div className="form-group">
-                <label className="form-label">Label</label>
-                <input type="text" className="input" placeholder="e.g. Server Credentials" value={noteLabel} onChange={e => setNoteLabel(e.target.value)} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Value</label>
-                <textarea className="textarea" placeholder="Enter the note value…" value={noteValue} onChange={e => setNoteValue(e.target.value)} required style={{ fontFamily:'monospace', minHeight:'80px' }} />
-              </div>
-              <button type="submit" className="btn-primary" style={{ alignSelf:'flex-start' }}>Add Note</button>
-            </form>
-
-            {notes.length === 0 ? (
-              <p style={{ color:'var(--text-muted)', fontSize:'0.88rem' }}>No notes added yet.</p>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem' }}>
+            {notes.length > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:'0.75rem', marginBottom:'2rem' }}>
                 {notes.map(note => (
-                  <div key={note.id} style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-lg)', padding:'1.25rem 1.5rem', position:'relative' }}>
+                  <div key={note._id || note.id} style={{ background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-lg)', padding:'1.25rem 1.5rem', position:'relative' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'0.75rem' }}>
                       <div style={{ fontSize:'0.75rem', fontWeight:600, color:'var(--text-muted)', textTransform:'uppercase', letterSpacing:'0.08em' }}>{note.label}</div>
-                      <button onClick={() => deleteNote(note.id)} className="btn-danger" style={{ padding:'0.25rem 0.6rem', fontSize:'0.75rem' }}>Delete</button>
+                      <button onClick={() => deleteNote(note._id || note.id)} className="btn-danger" style={{ padding:'0.25rem 0.6rem', fontSize:'0.75rem' }}>Delete</button>
                     </div>
                     <div style={{ fontFamily:'monospace', fontSize:'0.85rem', whiteSpace:'pre-wrap', color:'var(--text-secondary)', background:'var(--bg-base)', padding:'0.85rem 1rem', borderRadius:'var(--radius-sm)' }}>
                       {note.value}
@@ -716,6 +746,27 @@ export default function ProjectDetail({ params }) {
                   </div>
                 ))}
               </div>
+            )}
+
+            {notes.length === 0 && !isAddingNote && (
+              <p style={{ color:'var(--text-muted)', fontSize:'0.88rem', marginBottom:'2rem' }}>No notes added yet.</p>
+            )}
+
+            {isAddingNote && (
+              <form onSubmit={submitNote} style={{ marginBottom:'2rem', display:'flex', flexDirection:'column', gap:'1rem', background:'var(--bg-surface-2)', padding:'1.5rem', borderRadius:'var(--radius-lg)', border:'1px solid var(--bg-border)' }}>
+                <div className="form-group">
+                  <label className="form-label">Label</label>
+                  <input type="text" className="input" placeholder="e.g. Server Credentials" value={noteLabel} onChange={e => setNoteLabel(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Value</label>
+                  <textarea className="textarea" placeholder="Enter the note value." value={noteValue} onChange={e => setNoteValue(e.target.value)} required style={{ fontFamily:'monospace', minHeight:'80px' }} />
+                </div>
+                <div style={{ display:'flex', gap:'1rem' }}>
+                  <button type="submit" className="btn-primary">Save Note</button>
+                  <button type="button" className="btn-ghost" onClick={() => { setIsAddingNote(false); setNoteLabel(''); setNoteValue(''); }}>Cancel</button>
+                </div>
+              </form>
             )}
           </div>
         )}
@@ -764,6 +815,17 @@ export default function ProjectDetail({ params }) {
           <iframe src={project.previewUrl || 'about:blank'} style={{ flex:1, border:'none', width:'100%' }} title="Fullscreen Preview" />
         </div>
       )}
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div 
+          onClick={() => setPreviewImage(null)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}
+        >
+          <img src={previewImage} alt="preview" style={{ maxHeight: '90vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }} />
+        </div>
+      )}
     </div>
   );
 }
+
