@@ -66,8 +66,8 @@ export async function POST(request) {
 
   const org = await Organization.findById(session.orgId).lean();
 
-  // Determine responsible agency
-  const responsibleAgencyId = project.agencyId;
+  // Determine responsible agency (fallback to owner if none)
+  const responsibleAgencyId = project.agencyId || project.ownerId;
 
   const revision = await Revision.create({
     projectId,

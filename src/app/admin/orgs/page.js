@@ -156,7 +156,13 @@ export default function AdminOrgs() {
           <button onClick={openNew} className="btn-primary">New Organization</button>
         </div>
 
-        {loading ? <div className="spinner"></div> : (
+        {loading ? (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'4rem', textAlign:'center' }}>
+            <div className="spinner" style={{ width:40, height:40, marginBottom:'2rem' }} />
+            <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
+            <p style={{ fontSize:'0.9rem', color:'var(--text-muted)', maxWidth:'300px', lineHeight:1.5 }}>Patience is the key to accomplishing everything.</p>
+          </div>
+        ) : (
           <div className="card">
             <table className="data-table">
               <thead>

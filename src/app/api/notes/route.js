@@ -3,7 +3,7 @@ import { connectDB } from '@/lib/mongodb';
 import Note from '@/models/Note';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
-import { v4 as uuid } from 'uuid';
+import mongoose from 'mongoose';
 
 // GET notes for a project+org combo
 export async function GET(request) {
@@ -37,7 +37,7 @@ export async function POST(request) {
   await connectDB();
   const org = await Organization.findById(session.orgId).lean();
 
-  const entry = { _id: uuid(), label, value, addedAt: new Date() };
+  const entry = { _id: new mongoose.Types.ObjectId(), label, value, addedAt: new Date() };
   const note = await Note.findOneAndUpdate(
     { projectId, orgId: org._id },
     { $push: { entries: entry }, $set: { updatedAt: new Date() } },

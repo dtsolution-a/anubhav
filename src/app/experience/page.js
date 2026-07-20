@@ -396,31 +396,39 @@ export default function ExperiencePage() {
                           </div>
                           
                           {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end' }}>
-                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
-                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
-                                    reader.readAsDataURL(file);
-                                  }
-                                }} />
-                                <Paperclip size={20} />
-                              </label>
-                              <textarea 
-                                className="textarea" 
-                                placeholder="Reply... (paste image here)" 
-                                value={replyText[revId] || ''} 
-                                onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
-                                onPaste={e => handlePaste(e, revId)}
-                                style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)', resize:'none' }}
-                                rows={1}
-                              ></textarea>
-                              <button className="btn-primary" onClick={() => handleReplyRevision(revId)} disabled={(!replyText[revId]?.trim() && !replyImgs[revId])} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 'not-allowed' : 'pointer', opacity: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 0.5 : 1 }}>
-                                <Send size={18} />
-                              </button>
-                            </div>
+                            <>
+                              {replyImgs[revId] && (
+                                <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block' }}>
+                                  <img src={replyImgs[revId]} alt="preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--bg-border)' }} />
+                                  <button onClick={() => setReplyImgs(prev => ({...prev, [revId]: null}))} style={{ position: 'absolute', top: -8, right: -8, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                </div>
+                              )}
+                              <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end' }}>
+                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }} />
+                                  <Paperclip size={20} />
+                                </label>
+                                <textarea 
+                                  className="textarea" 
+                                  placeholder="Reply... (paste image here)" 
+                                  value={replyText[revId] || ''} 
+                                  onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
+                                  onPaste={e => handlePaste(e, revId)}
+                                  style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)', resize:'none' }}
+                                  rows={1}
+                                ></textarea>
+                                <button className="btn-primary" onClick={() => handleReplyRevision(revId)} disabled={(!replyText[revId]?.trim() && !replyImgs[revId])} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 'not-allowed' : 'pointer', opacity: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 0.5 : 1 }}>
+                                  <Send size={18} />
+                                </button>
+                              </div>
+                            </>
                           )}
                         </div>
                       )}

@@ -273,8 +273,10 @@ export default function ProjectDetail({ params }) {
   // ── Loading / Error states ──────────────────────────────────────
   if (loading) return (
     <div className="sidebar-layout">
-      <div className="main-content" style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh' }}>
-        <div className="spinner" style={{ width:36, height:36 }} />
+      <div className="main-content" style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', textAlign:'center' }}>
+        <div className="spinner" style={{ width:40, height:40, marginBottom:'2rem' }} />
+        <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
+        <p style={{ fontSize:'0.9rem', color:'var(--text-muted)', maxWidth:'300px', lineHeight:1.5 }}>Patience is the key to accomplishing everything.</p>
       </div>
     </div>
   );
@@ -620,36 +622,44 @@ export default function ProjectDetail({ params }) {
 
                           {/* Chat Input */}
                           {rev.status !== 'closed' && rev.status !== 'resolved' ? (
-                            <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
-                              <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
-                                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
-                                    reader.readAsDataURL(file);
-                                  }
-                                }} />
-                                <Paperclip size={20} />
-                              </label>
-                              <textarea
-                                className="chat-textarea"
-                                placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
-                                value={replyTexts[revId] || ''}
-                                onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
-                                onKeyDown={e => handleReplyKeyDown(e, revId)}
-                                onPaste={e => handlePaste(e, revId)}
-                                rows={1}
-                                style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
-                              />
-                              <button
-                                onClick={() => submitReply(revId)}
-                                disabled={(!replyTexts[revId]?.trim() && !replyImgs[revId]) || sendingReply}
-                                style={{ width:'44px', height:'44px', borderRadius:'50%', background: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border:'none', boxShadow: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
-                              >
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                              </button>
-                            </div>
+                            <>
+                              {replyImgs[revId] && (
+                                <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block', padding: '0 1.5rem' }}>
+                                  <img src={replyImgs[revId]} alt="preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--bg-border)' }} />
+                                  <button onClick={() => setReplyImgs(prev => ({...prev, [revId]: null}))} style={{ position: 'absolute', top: -8, right: 16, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                                </div>
+                              )}
+                              <div className="chat-input-bar" style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end', padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)' }}>
+                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
+                                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }} />
+                                  <Paperclip size={20} />
+                                </label>
+                                <textarea
+                                  className="chat-textarea"
+                                  placeholder="Type a message… (paste images) (Enter to send, Shift+Enter for new line)"
+                                  value={replyTexts[revId] || ''}
+                                  onChange={e => setReplyTexts(prev => ({ ...prev, [revId]: e.target.value }))}
+                                  onKeyDown={e => handleReplyKeyDown(e, revId)}
+                                  onPaste={e => handlePaste(e, revId)}
+                                  rows={1}
+                                  style={{ flex:1, minHeight:'44px', maxHeight:'120px', padding:'0.65rem 1.1rem', borderRadius:'22px', resize:'none', border:'1.5px solid var(--bg-border)', background:'var(--bg-base)', color:'var(--text-primary)', fontSize:'0.88rem', outline:'none', fontFamily:'inherit', lineHeight:1.5 }}
+                                />
+                                <button
+                                  onClick={() => submitReply(revId)}
+                                  disabled={(!replyTexts[revId]?.trim() && !replyImgs[revId]) || sendingReply}
+                                  style={{ width:'44px', height:'44px', borderRadius:'50%', background: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.05)', color: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '#000' : 'var(--text-muted)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all 0.2s', cursor: (replyTexts[revId]?.trim() || replyImgs[revId]) ? 'pointer' : 'not-allowed', border:'none', boxShadow: (replyTexts[revId]?.trim() || replyImgs[revId]) ? '0 4px 12px var(--accent-glow)' : 'none' }}
+                                >
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                </button>
+                              </div>
+                            </>
                           ) : (
                             <div style={{ padding:'1rem 1.5rem', background:'var(--bg-surface-2)', borderTop:'1px solid var(--bg-border)', fontSize:'0.82rem', color:'var(--text-muted)', textAlign:'center' }}>
                               This revision is {rev.status}. No further replies.
