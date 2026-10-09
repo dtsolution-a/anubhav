@@ -23,3 +23,16 @@ export function useDesktop() {
   }, []);
   return isDesktop;
 }
+
+// True on phone-sized viewports; null until measured.
+export function useIsMobile(maxWidth = 640) {
+  const [isMobile, setIsMobile] = useState(null);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${maxWidth}px)`);
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, [maxWidth]);
+  return isMobile;
+}

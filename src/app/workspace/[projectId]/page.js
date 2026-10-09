@@ -519,7 +519,7 @@ export default function ProjectDetail({ params }) {
                 <p className="empty-state-sub">No revisions have been raised for this project.</p>
               </div>
             ) : (
-              <div className="split-pane" style={{ display:'flex', gap:'1.5rem', flex: 1, minHeight:'500px' }}>
+              <div className="split-pane" data-open={expandedRevisionId ? 'true' : 'false'} style={{ display:'flex', gap:'1.5rem', flex: 1, minHeight:'500px' }}>
                 {/* Left pane: Revision list (30%) */}
                 <div className="custom-scrollbar split-list" style={{ flex:'0 0 32%', display:'flex', flexDirection:'column', gap:'0.75rem', overflowY:'auto', paddingRight:'0.5rem' }}>
                   {revisions.map(rev => {
@@ -561,7 +561,7 @@ export default function ProjectDetail({ params }) {
                 </div>
 
                 {/* Right pane: Active Chat (70%) */}
-                <div style={{ flex:'1 1 auto', background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-xl)', overflow:'hidden', display:'flex', flexDirection:'column' }}>
+                <div className="split-chat" style={{ flex:'1 1 auto', minWidth:0, background:'var(--bg-surface)', border:'1px solid var(--bg-border)', borderRadius:'var(--radius-xl)', overflow:'hidden', display:'flex', flexDirection:'column' }}>
                   {(() => {
                     if (!expandedRevisionId) return (
                       <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'var(--text-muted)' }}>
@@ -578,12 +578,15 @@ export default function ProjectDetail({ params }) {
                     return (
                       <>
                         <div className="rev-card-header" style={{ padding:'1.25rem 1.5rem', background:'var(--bg-surface-2)', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', minWidth:0 }}>
+                            <button className="btn-icon wa-back" onClick={() => setExpandedRevisionId(null)} aria-label="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+                            <div style={{ minWidth:0 }}>
                             <strong style={{ fontSize:'1.1rem', fontWeight:600, display:'block', marginBottom:'0.2rem' }}>{rev.title}</strong>
                             <div style={{ fontSize:'0.8rem', color:'var(--text-muted)' }}>Raised by {rev.raisedByName || 'Unknown'}</div>
+                            </div>
                           </div>
                           {rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <div style={{ display:'flex', gap:'0.5rem' }}>
+                            <div className="rev-actions" style={{ display:'flex', gap:'0.5rem' }}>
                               <button className="btn-ghost" style={{ fontSize:'0.75rem', padding:'0.35rem 0.7rem' }} onClick={() => updateRevisionStatus(revId, 'in-progress')}>
                                 Mark In-Progress
                               </button>
