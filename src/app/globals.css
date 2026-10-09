@@ -1103,3 +1103,33 @@ body {
 .wa-viewer { position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.95); display: flex; align-items: center; justify-content: center; }
 .wa-viewer img { max-width: 100%; max-height: 100%; object-fit: contain; }
 .wa-viewer button { position: absolute; top: calc(0.9rem + env(safe-area-inset-top)); right: 1rem; color: #fff; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; }
+
+/* ── AGENCY MOBILE APP ───────────────────────────────────────────── */
+.wa-tabs {
+  display: flex; gap: 0.5rem; flex-shrink: 0; overflow-x: auto; scrollbar-width: none;
+  padding: 0.6rem 1rem; border-bottom: 1px solid var(--bg-border); background: var(--bg-surface-2);
+}
+.wa-tabs::-webkit-scrollbar { display: none; }
+.wa-tabs button {
+  flex-shrink: 0; padding: 0.45rem 1rem; border-radius: 100px;
+  font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);
+  background: rgba(255,255,255,0.05); border: 1px solid var(--bg-border);
+}
+.wa-chips { display: flex; gap: 0.5rem; overflow-x: auto; scrollbar-width: none; padding: 0.75rem 1rem; }
+.wa-chips::-webkit-scrollbar { display: none; }
+.wa-chips span {
+  flex-shrink: 0; font-size: 0.76rem; color: var(--text-secondary);
+  padding: 0.35rem 0.8rem; border-radius: 100px; border: 1px solid var(--bg-border); background: rgba(255,255,255,0.03);
+}
+.wa-chips b { color: var(--text-primary); margin-right: 2px; }
+.wa-sheet-bg { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6); display: flex; align-items: flex-end; }
+.wa-sheet {
+  width: 100%; background: var(--bg-surface-2); border-radius: 20px 20px 0 0;
+  padding: 0.5rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom)); animation: slideUp 0.2s ease;
+}
+.wa-sheet-title { text-align: center; font-size: 0.78rem; color: var(--text-muted); padding: 0.7rem 0; text-transform: uppercase; letter-spacing: 0.08em; }
+.wa-sheet button { display: block; width: 100%; padding: 0.95rem; font-size: 1rem; font-weight: 600; border-top: 1px solid var(--bg-border); color: var(--text-primary); }
+.wa-note-card { background: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: var(--radius-md); padding: 0.85rem 1rem; }
+.wa-note-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.74rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.wa-note-top button { color: #ef4444; padding: 0.3rem; }
+.wa-note-card pre { font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary); }

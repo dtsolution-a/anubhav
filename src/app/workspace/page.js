@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useIsMobile } from '@/lib/useDesktop';
+import AgencyMobileApp from '@/components/AgencyMobileApp';
 import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, CheckCircle, Zap } from 'lucide-react';
 
 export default function WorkspaceDashboard() {
+  const isMobile = useIsMobile();
   const [session, setSession]             = useState(null);
   const [projects, setProjects]           = useState([]);
   const [openRevisionsCount, setOpenRevisionsCount] = useState(0);
@@ -47,6 +50,9 @@ export default function WorkspaceDashboard() {
     await fetch('/api/auth/logout', { method: 'POST' });
     window.location.href = '/';
   };
+
+  // Phones get the chat-style app
+  if (isMobile) return <AgencyMobileApp />;
 
   if (loading) return (
     <div className="sidebar-layout">

@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { useDesktop } from '@/lib/useDesktop';
+import { useDesktop, useIsMobile } from '@/lib/useDesktop';
+import AgencyMobileApp from '@/components/AgencyMobileApp';
 import PreviewLock from '@/components/PreviewLock';
 import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, Monitor, Paperclip, Lock, Link as LinkIcon } from 'lucide-react';
 
 export default function ProjectDetail({ params }) {
   const isDesktop = useDesktop();
+  const isMobile = useIsMobile();
   const canPreview = isDesktop === true;
   const { projectId } = params;
 
@@ -278,6 +280,9 @@ export default function ProjectDetail({ params }) {
     if (type === 'client') return '#4facfe';
     return '#a8ff78'; // agency
   };
+
+  // Phones get the chat-style app
+  if (isMobile) return <AgencyMobileApp initialProjectId={projectId} />;
 
   // ── Loading / Error states ──────────────────────────────────────
   if (loading) return (
