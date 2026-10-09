@@ -1,4 +1,6 @@
 'use client';
+import { useIsMobile } from '@/lib/useDesktop';
+import OwnerMobileApp from '@/components/OwnerMobileApp';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -58,6 +60,7 @@ const roleLabel = (type) => {
 export default function AdminProjectDetails({ params }) {
   const router = useRouter();
   const { id } = params;
+  const isMobile = useIsMobile();
 
   const [project,   setProject]   = useState(null);
   const [orgs,      setOrgs]      = useState([]);
@@ -263,6 +266,9 @@ export default function AdminProjectDetails({ params }) {
   };
 
   const getDocIcon = (type) => ({ quotation: '📄', invoice: '💰', contract: '📋', nda: '🔒' }[type] || '📎');
+
+  // Phones get the chat-style owner app
+  if (isMobile) return <OwnerMobileApp />;
 
   if (loading) return (
     <div className="sidebar-layout">

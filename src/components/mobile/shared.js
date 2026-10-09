@@ -3,6 +3,10 @@ const seenKey = (id) => `anx_seen_${id}`;
 export const getSeen = (id) => {
   try { return parseInt(localStorage.getItem(seenKey(id)) || '0', 10) || 0; } catch { return 0; }
 };
+// A conversation never opened on this device and quiet for 2 days is old news, not unread
+export const hasSeen = (id) => { try { return localStorage.getItem(seenKey(id)) !== null; } catch { return true; } };
+const STALE_MS = 2 * 24 * 3600 * 1000;
+export const isStale = (id, lastAt) => !hasSeen(id) && lastAt && Date.now() - new Date(lastAt).getTime() > STALE_MS;
 export const setSeen = (id, n) => { try { localStorage.setItem(seenKey(id), String(n)); } catch {} };
 
 export const idOf = (r) => r._id || r.id;
@@ -27,6 +31,8 @@ export function listTime(d) {
 // Messages from the other side that have not been opened yet
 export function unreadFor(rev, myType) {
   const t = rev.thread || [];
+  const last = t[t.length - 1];
+  if (isStale(idOf(rev), last && (last.timestamp || last.createdAt))) return 0;
   return t.slice(getSeen(idOf(rev))).filter(m => m.authorType !== myType).length;
 }
 

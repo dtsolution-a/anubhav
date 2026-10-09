@@ -1170,3 +1170,53 @@ html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transpare
 .notify-x { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
 .inbox-row { text-decoration: none; color: inherit; }
 .inbox-row:hover { background: rgba(255,255,255,0.03); }
+
+/* ── OWNER MOBILE APP ────────────────────────────────────────────── */
+.wa-tabbar {
+  flex-shrink: 0; display: flex; background: var(--bg-surface-2); border-top: 1px solid var(--bg-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.wa-tabbar button {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0.5rem 0 0.4rem; font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+}
+.wa-tabbar button.on { color: var(--accent); }
+.wa-tab-ic { position: relative; display: flex; }
+.wa-tab-badge {
+  position: absolute; top: -5px; right: -10px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #000; font-size: 0.62rem; font-weight: 800; font-style: normal;
+}
+.wa-add { width: 40px; height: 40px; border-radius: 50%; }
+.wa-search {
+  flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; margin: 0.6rem 1rem 0; padding: 0 0.85rem;
+  height: 42px; border-radius: 21px; background: var(--bg-surface-2); border: 1px solid var(--bg-border); color: var(--text-muted);
+}
+.wa-search input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: var(--text-primary); font-size: 16px; }
+.wa-search button { color: var(--text-muted); display: flex; }
+.wa-chips-row { flex-shrink: 0; display: flex; gap: 0.5rem; overflow-x: auto; scrollbar-width: none; padding: 0.6rem 1rem; }
+.wa-chips-row::-webkit-scrollbar { display: none; }
+.wa-chips-row button {
+  flex-shrink: 0; padding: 0.38rem 0.9rem; border-radius: 100px; font-size: 0.78rem; font-weight: 600;
+  color: var(--text-secondary); background: rgba(255,255,255,0.05); border: 1px solid var(--bg-border);
+}
+.wa-field { display: flex; flex-direction: column; gap: 0.35rem; }
+.wa-field > span { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+.wa-two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.wa-inline { display: flex; gap: 0.5rem; }
+.wa-inline .input { flex: 1; min-width: 0; }
+.wa-color { width: 100%; height: 46px; padding: 3px; border-radius: var(--radius-md); background: var(--bg-base); border: 1.5px solid var(--bg-border); }
+.wa-submit { width: 100%; justify-content: center; min-height: 48px; }
+.wa-card { background: var(--bg-surface-2); border: 1px solid var(--bg-border); border-radius: var(--radius-lg); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.wa-card-title { font-family: var(--font-head); font-weight: 600; font-size: 0.95rem; }
+.wa-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; text-align: center; }
+.wa-stats b { display: block; font-family: var(--font-head); font-size: 1.4rem; }
+.wa-stats span { font-size: 0.64rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.wa-toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(5.5rem + env(safe-area-inset-bottom)); z-index: 600;
+  background: #1d1a17; color: var(--text-primary); border: 1px solid var(--bg-border-h); border-radius: 100px;
+  padding: 0.6rem 1.1rem; font-size: 0.85rem; box-shadow: var(--shadow-md); animation: fadeUp 0.2s both;
+}
+
+/* switching bottom tabs should feel instant, not slide in */
+.wa-screen:has(.wa-tabbar) { animation: none; }

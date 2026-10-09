@@ -1,4 +1,6 @@
 'use client';
+import { useIsMobile } from '@/lib/useDesktop';
+import OwnerMobileApp from '@/components/OwnerMobileApp';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -42,6 +44,7 @@ function AdminSidebar({ active, onLogout }) {
 }
 
 export default function AdminDashboard() {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const activity = useActivity(8000);
   const unreadTotal = (activity || []).reduce((n, r) => n + ownerUnread(r), 0);
@@ -87,6 +90,9 @@ export default function AdminDashboard() {
     { label: 'Open Revisions',  value: stats.openRevisions,   icon: <MessageSquare size={24} />, color: 'rgba(255,112,53,0.06)'  },
     { label: 'Total Orgs',      value: stats.orgs,            icon: <Building size={24} />, color: 'rgba(74,222,128,0.06)'  },
   ];
+
+  // Phones get the chat-style owner app
+  if (isMobile) return <OwnerMobileApp />;
 
   return (
     <div className="sidebar-layout">

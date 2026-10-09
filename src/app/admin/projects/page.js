@@ -1,4 +1,6 @@
 'use client';
+import { useIsMobile } from '@/lib/useDesktop';
+import OwnerMobileApp from '@/components/OwnerMobileApp';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -39,6 +41,7 @@ function AdminSidebar({ active, onLogout }) {
 }
 
 export default function AdminProjects() {
+  const isMobile = useIsMobile();
   const router = useRouter();
   const [projects, setProjects] = useState([]);
   const [orgs, setOrgs] = useState([]);
@@ -115,6 +118,9 @@ export default function AdminProjects() {
       setShowModal(true);
     }
   }, []);
+
+  // Phones get the chat-style owner app
+  if (isMobile) return <OwnerMobileApp />;
 
   const agencyOrgs = orgs.filter((o) => o.type === 'agency');
 
