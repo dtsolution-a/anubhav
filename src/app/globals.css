@@ -1153,3 +1153,20 @@ html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transpare
 .install-x { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
 .install-steps { margin: 0.8rem 0 0 1.2rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.35rem; }
 .install-steps b { color: var(--text-primary); }
+
+/* ── NOTIFICATIONS / LIVE INBOX ──────────────────────────────────── */
+.nav-pill {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #000; font-size: 0.68rem; font-weight: 700;
+}
+.notify-banner {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin: 0.75rem 1rem 0; padding: 0.65rem 0.75rem;
+  font-size: 0.78rem; color: var(--text-secondary); line-height: 1.35;
+  background: var(--bg-surface-2); border: 1px solid var(--bg-border); border-radius: var(--radius-md);
+}
+.notify-btn { padding: 0.4rem 0.9rem; font-size: 0.78rem; flex-shrink: 0; min-height: 0 !important; }
+.notify-x { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); flex-shrink: 0; }
+.inbox-row { text-decoration: none; color: inherit; }
+.inbox-row:hover { background: rgba(255,255,255,0.03); }

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AdminUnreadBadge from '@/components/AdminUnread';
 import { Crown, Briefcase, User } from 'lucide-react';
 
 function AdminSidebar({ active, onLogout }) {
@@ -22,7 +23,7 @@ function AdminSidebar({ active, onLogout }) {
       <nav className="sidebar-nav">
         {navItems.map(item => (
           <Link key={item.href} href={item.href} className={`sidebar-nav-item ${active === item.label ? 'active' : ''}`}>
-            {item.icon}{item.label}
+            {item.icon}{item.label}{item.label === 'Projects' && <AdminUnreadBadge />}
           </Link>
         ))}
       </nav>

@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Plus, LogOut, Trash2, Lock, MessageSquarePlus, Send } from 'lucide-react';
 import ChatScreen from './mobile/ChatScreen';
-import { idOf, timeOf, listTime, unreadFor, statusColor } from './mobile/shared';
+import NotifyButton from './NotifyButton';
+import { idOf, timeOf, listTime, unreadFor, statusColor, setAppBadge } from './mobile/shared';
 
 // Phone experience for the end client: request list -> chat, like WhatsApp.
 export default function ClientMobileApp({ project, clientOrg, brand, accent, accentLt, bgBase, onLogout }) {
@@ -45,6 +46,20 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+
+  // app icon badge = unread replies
+  useEffect(() => {
+    setAppBadge(revisions.reduce((n, r) => n + unreadFor(r, 'client'), 0));
+  }, [revisions, screen, openId]);
+
+  // notification tap -> open that conversation
+  const deepRef = useRef(false);
+  useEffect(() => {
+    if (deepRef.current || !loaded) return;
+    const rid = new URLSearchParams(window.location.search).get('rev');
+    if (!rid) { deepRef.current = true; return; }
+    if (revisions.some(r => idOf(r) === rid)) { deepRef.current = true; go('chat', rid); }
+  }, [loaded, revisions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = (s, id = null) => { history.pushState({ anx: s }, ''); setOpenId(id); setScreen(s); };
   const back = () => history.back();
@@ -154,6 +169,7 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
       </div>
 
       <div className="wa-body">
+        <NotifyButton accent={accent} />
         <div className="wa-note"><Lock size={14} /> Website preview opens on desktop only. Share your changes here instead.</div>
 
         {!loaded && <p className="wa-empty" style={{ marginTop: '3rem' }}>Loading…</p>}

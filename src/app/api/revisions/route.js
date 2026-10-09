@@ -4,6 +4,7 @@ import Revision from '@/models/Revision';
 import Project from '@/models/Project';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
+import { notifyRevision } from '@/lib/push';
 
 // GET revisions — filtered by project or all (owner sees all)
 export async function GET(request) {
@@ -83,6 +84,13 @@ export async function POST(request) {
       message,
       imageUrl: imageUrl || null,
     }],
+  });
+
+  await notifyRevision({
+    revision,
+    sender: { type: session.type, orgId: session.orgId },
+    title: `New request from ${org.name}`,
+    body: message,
   });
 
   return NextResponse.json(revision, { status: 201 });

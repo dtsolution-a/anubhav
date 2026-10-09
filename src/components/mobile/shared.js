@@ -53,3 +53,10 @@ export function fileToDataUrl(file) {
 
 export const statusColor = (s, accent) =>
   s === 'resolved' ? '#a8ff78' : s === 'closed' ? '#888' : s === 'in-progress' ? '#38bdf8' : accent;
+
+// Number on the installed app's home screen icon (iOS 16.4+, Android, desktop PWAs)
+export function setAppBadge(n) {
+  try {
+    if (n > 0) navigator.setAppBadge?.(n); else navigator.clearAppBadge?.();
+  } catch {}
+}

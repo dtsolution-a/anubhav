@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AdminUnreadBadge, { useActivity, ownerUnread } from '@/components/AdminUnread';
+import NotifyButton from '@/components/NotifyButton';
 import { FolderKanban, Zap, MessageSquare, Building } from 'lucide-react';
 
 // ── Shared Admin Sidebar ────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ function AdminSidebar({ active, onLogout }) {
       <nav className="sidebar-nav">
         {navItems.map(item => (
           <Link key={item.href} href={item.href} className={`sidebar-nav-item ${active === item.label ? 'active' : ''}`}>
-            {item.icon}{item.label}
+            {item.icon}{item.label}{item.label === 'Projects' && <AdminUnreadBadge />}
           </Link>
         ))}
       </nav>
@@ -41,6 +43,8 @@ function AdminSidebar({ active, onLogout }) {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const activity = useActivity(8000);
+  const unreadTotal = (activity || []).reduce((n, r) => n + ownerUnread(r), 0);
   const [stats, setStats] = useState({ projects: 0, activeProjects: 0, openRevisions: 0, orgs: 0 });
   const [recentRevisions, setRecentRevisions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +104,7 @@ export default function AdminDashboard() {
               <p className="page-sub" style={{ marginTop: '0.35rem' }}>Overview of all projects, revisions, and organizations.</p>
             </div>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <NotifyButton variant="button" />
               <button onClick={() => router.push('/admin/projects?action=new')} className="btn-primary">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 New Project
@@ -133,46 +138,48 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* Recent Revisions */}
+            {/* Live inbox: every conversation, newest activity first */}
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--bg-border)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
-              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h2 className="section-title" style={{ margin: 0 }}>Recent Open Revisions</h2>
-                <span className="section-count">{recentRevisions.length}</span>
+              <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--bg-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span className="badge-dot" style={{ background: '#4ade80', color: '#4ade80' }} /> Live Inbox
+                </h2>
+                <span className="section-count" style={unreadTotal ? { color: 'var(--accent)', borderColor: 'var(--accent)' } : undefined}>
+                  {unreadTotal ? `${unreadTotal} unread` : 'All caught up'}
+                </span>
               </div>
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th>Raised By</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentRevisions.length === 0 ? (
-                    <tr><td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>No open revisions found.</td></tr>
-                  ) : (
-                    recentRevisions.map(rev => {
-                      const projId = typeof rev.projectId === 'object' && rev.projectId !== null
-                        ? (rev.projectId._id || rev.projectId.id) : rev.projectId;
-                      const projTitle = typeof rev.projectId === 'object' && rev.projectId !== null
-                        ? rev.projectId.title : (rev.projectTitle || rev.projectId);
-                      return (
-                        <tr key={rev.id || rev._id}>
-                          <td style={{ fontWeight: 500 }}>{projTitle}</td>
-                          <td style={{ color: 'var(--text-muted)' }}>{rev.raisedByName || rev.raisedBy || '—'}</td>
-                          <td><span className="badge badge-open">{rev.status || 'open'}</span></td>
-                          <td style={{ color: 'var(--text-muted)', fontSize: '0.83rem' }}>{new Date(rev.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
-                          <td>
-                            <Link href={`/admin/projects/${projId}?tab=revisions`} style={{ color: 'var(--accent)', fontSize: '0.83rem', fontWeight: 600 }}>View →</Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+              {activity === null ? (
+                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>Loading…</p>
+              ) : activity.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.88rem' }}>No conversations yet.</p>
+              ) : (
+                activity.slice(0, 15).map(r => {
+                  const unread = ownerUnread(r);
+                  const when = new Date(r.lastAt);
+                  const who = r.lastType === 'owner' ? 'You' : r.lastName;
+                  return (
+                    <Link key={r.id} href={`/admin/projects/${r.projectId}?tab=revisions&rev=${r.id}`} className="wa-row inbox-row">
+                      <div className="wa-avatar" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>{(r.projectTitle || r.title || '?')[0].toUpperCase()}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="wa-row-top">
+                          <span className="wa-title" style={{ color: 'var(--text-primary)', fontWeight: unread ? 700 : 600 }}>
+                            {r.projectTitle} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>· {r.title}</span>
+                          </span>
+                          <span className="wa-time" style={unread ? { color: 'var(--accent)' } : undefined}>
+                            {when.toDateString() === new Date().toDateString() ? when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : when.toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                          </span>
+                        </div>
+                        <div className="wa-row-top">
+                          <span className="wa-preview">{who ? `${who}: ` : ''}{r.lastHasImage && !r.lastMessage ? '📷 Photo' : r.lastMessage}</span>
+                          {unread > 0
+                            ? <span className="wa-badge" style={{ background: 'var(--accent)' }}>{unread}</span>
+                            : <span className={`badge badge-${(r.status || 'open').replace('-', '')}`} style={{ flexShrink: 0 }}>{r.status}</span>}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
             </div>
           </>
         )}

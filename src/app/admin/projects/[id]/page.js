@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AdminUnreadBadge from '@/components/AdminUnread';
+import { setSeen } from '@/components/mobile/shared';
 import { Info, Paperclip, MessageSquare } from 'lucide-react';
 
 // ── Shared Admin Sidebar ────────────────────────────────────────────────────
@@ -23,7 +25,7 @@ function AdminSidebar({ active, onLogout }) {
       <nav className="sidebar-nav">
         {navItems.map(item => (
           <Link key={item.href} href={item.href} className={`sidebar-nav-item ${active === item.label ? 'active' : ''}`}>
-            {item.icon}{item.label}
+            {item.icon}{item.label}{item.label === 'Projects' && <AdminUnreadBadge />}
           </Link>
         ))}
       </nav>
@@ -126,6 +128,20 @@ export default function AdminProjectDetails({ params }) {
     if (expandedRev && chatEndRefs.current[expandedRev]) {
       chatEndRefs.current[expandedRev].scrollIntoView({ behavior: 'smooth' });
     }
+  }, [expandedRev, revisions]);
+
+  // Notification deep link (?tab=revisions&rev=ID)
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('tab')) setTab(q.get('tab'));
+    if (q.get('rev')) setExpandedRev(q.get('rev'));
+  }, []);
+
+  // Opening a conversation marks it as read
+  useEffect(() => {
+    if (!expandedRev) return;
+    const r = revisions.find(x => (x.id || x._id) === expandedRev);
+    if (r) setSeen(expandedRev, (r.thread || []).length);
   }, [expandedRev, revisions]);
 
   const handleLogout = async () => {

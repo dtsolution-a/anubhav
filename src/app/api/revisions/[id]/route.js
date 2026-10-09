@@ -4,6 +4,7 @@ import Revision from '@/models/Revision';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 import mongoose from 'mongoose';
+import { notifyRevision } from '@/lib/push';
 
 // GET single revision
 export async function GET(_, { params }) {
@@ -55,6 +56,12 @@ export async function PUT(request, { params }) {
       revision.status = 'in-progress';
     }
     await revision.save();
+    await notifyRevision({
+      revision,
+      sender: { type: session.type, orgId: session.orgId },
+      title: session.type === 'owner' ? 'Saarthi - DT Solution' : org.name,
+      body: message || (imageUrl ? 'Sent a photo' : ''),
+    });
     return NextResponse.json(revision.toObject());
   }
 
@@ -65,6 +72,12 @@ export async function PUT(request, { params }) {
       revision.resolvedAt = new Date();
     }
     await revision.save();
+    await notifyRevision({
+      revision,
+      sender: { type: session.type, orgId: session.orgId },
+      title: `Request ${body.status}`,
+      body: revision.title,
+    });
     return NextResponse.json(revision.toObject());
   }
 

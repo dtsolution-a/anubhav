@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Plus, LogOut, Link as LinkIcon, Lock, MoreVertical, Paperclip, Send, Trash2, X, FolderKanban, MessageSquarePlus } from 'lucide-react';
 import ChatScreen from './mobile/ChatScreen';
 import PreviewLock from './PreviewLock';
-import { idOf, timeOf, listTime, unreadFor, statusColor, fileToDataUrl } from './mobile/shared';
+import NotifyButton from './NotifyButton';
+import { idOf, timeOf, listTime, unreadFor, statusColor, fileToDataUrl, setAppBadge } from './mobile/shared';
 
 const projIdOf = (rev) => String(rev.projectId?._id || rev.projectId || '');
 const initials = (t) => (t || '?').trim().substring(0, 2).toUpperCase();
@@ -93,6 +94,21 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // app icon badge = unread replies
+  useEffect(() => {
+    setAppBadge(revisions.reduce((n, r) => n + unreadFor(r, myType), 0));
+  }, [revisions, nav, myType]);
+
+  // notification tap -> open that conversation
+  const deepRef = useRef(false);
+  useEffect(() => {
+    if (deepRef.current || !loaded) return;
+    const rid = new URLSearchParams(window.location.search).get('rev');
+    if (!rid) { deepRef.current = true; return; }
+    const r = revisions.find(x => idOf(x) === rid);
+    if (r) { deepRef.current = true; go({ s: 'chat', pid: projIdOf(r), rid }); }
+  }, [loaded, revisions]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const go = (next) => { history.pushState({ anx: next }, ''); setNav(next); setMenu(false); };
   const back = () => history.back();
@@ -400,6 +416,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
       </div>
 
       <div className="wa-body">
+        <NotifyButton accent={accent} />
         <div className="wa-chips">
           <span><b>{projects.length}</b> projects</span>
           <span><b>{active}</b> active</span>
