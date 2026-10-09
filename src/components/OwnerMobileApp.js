@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ArrowLeft, Plus, Search, MoreVertical, Inbox, FolderKanban, Building2, Settings, LogOut,
-  Link as LinkIcon, Copy, Trash2, X, Shuffle, ChevronRight,
+  Link as LinkIcon, Copy, Trash2, X, Shuffle, ChevronRight, ExternalLink, MessageSquarePlus,
 } from 'lucide-react';
 import ChatScreen from './mobile/ChatScreen';
 import NotifyButton from './NotifyButton';
@@ -32,15 +32,17 @@ function Field({ label, children }) {
 }
 
 // Phone experience for the owner: Inbox / Projects / Clients / Settings, like WhatsApp.
-export default function OwnerMobileApp() {
+export default function OwnerMobileApp({ layout = 'mobile' }) {
+  const desktop = layout === 'desktop';
+  const [rootTab, setRootTab] = useState('inbox');
   // ── navigation, driven by the URL the owner opened (also what notifications deep-link to) ──
   const initialNav = () => {
     const path = window.location.pathname;
     const q = new URLSearchParams(window.location.search);
     const m = path.match(/^\/admin\/projects\/([^/]+)/);
     if (m) return { s: q.get('rev') ? 'chat' : 'project', pid: m[1], rid: q.get('rev') || null, tab: 'inbox' };
-    if (path.startsWith('/admin/projects')) return { s: 'projects' };
-    if (path.startsWith('/admin/orgs')) return { s: 'orgs' };
+    if (path.startsWith('/admin/projects')) return q.get('action') === 'new' ? { s: 'newproject' } : { s: 'projects' };
+    if (path.startsWith('/admin/orgs')) return q.get('action') === 'new' ? { s: 'neworg' } : { s: 'orgs' };
     return { s: 'inbox' };
   };
   const [nav, setNav] = useState({ s: 'inbox' });
@@ -122,7 +124,15 @@ export default function OwnerMobileApp() {
 
   // ── navigation helpers ──
   const push = (next) => { history.pushState({ anx: next }, ''); setNav(next); setSheet(null); setQ(''); };
-  const root = (s) => { const next = { s }; history.replaceState({ anx: next }, ''); setNav(next); setQ(''); setFilter('all'); };
+  const root = (s) => { const next = { s }; history.replaceState({ anx: next }, ''); setNav(next); setRootTab(s); setQ(''); setFilter('all'); };
+  useEffect(() => { if (['inbox', 'projects', 'orgs', 'more'].includes(nav.s)) setRootTab(nav.s); }, [nav.s]);
+
+  // unread count in the browser tab title
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\) /, '');
+    document.title = totalUnread > 0 ? `(${totalUnread}) ${base}` : base;
+    return () => { document.title = base; };
+  }, [totalUnread]);
   const back = () => history.back();
 
   const project = projects.find(p => idOf(p) === nav.pid);
@@ -263,17 +273,19 @@ export default function OwnerMobileApp() {
   const clientLink = (code) => `${window.location.origin}/?access=${btoa(code)}`;
 
   // ── shared chrome ──
-  const toastEl = () => toast ? <div className="wa-toast">{toast}</div> : null;
-  const tabbar = () => (
+  const toastNode = () => toast ? <div className="wa-toast">{toast}</div> : null;
+  const toastEl = () => (desktop ? null : toastNode());
+  const tabBarEl = () => (
     <div className="wa-tabbar">
       {[['inbox', 'Inbox', Inbox, totalUnread], ['projects', 'Projects', FolderKanban, 0], ['orgs', 'Clients', Building2, 0], ['more', 'Settings', Settings, 0]].map(([k, label, Icon, badge]) => (
-        <button key={k} className={nav.s === k ? 'on' : ''} onClick={() => root(k)}>
+        <button key={k} className={(desktop ? rootTab : nav.s) === k ? 'on' : ''} onClick={() => root(k)}>
           <span className="wa-tab-ic"><Icon size={22} />{badge > 0 && <i className="wa-tab-badge">{badge > 99 ? '99+' : badge}</i>}</span>
           {label}
         </button>
       ))}
     </div>
   );
+  const tabbar = () => (desktop ? null : tabBarEl());
   const searchBox = (placeholder) => (
     <div className="wa-search">
       <Search size={16} />
@@ -292,7 +304,7 @@ export default function OwnerMobileApp() {
   if (!ready) return null;
 
   // ── CHAT ──
-  if (nav.s === 'chat') {
+  const screenChat = () => {
     const rev = fulls[nav.rid];
     if (!rev) return (
       <div className="wa-screen" style={{ background: BG }}>
@@ -358,7 +370,7 @@ export default function OwnerMobileApp() {
     </form>
   );
 
-  if (nav.s === 'newproject') return (
+  const screenNewProject = () => (
     <div className="wa-screen" style={{ background: BG }}>
       <div className="wa-head"><button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button><div className="wa-title" style={{ flex: 1 }}>New project</div></div>
       {projectForm(true)}
@@ -366,7 +378,8 @@ export default function OwnerMobileApp() {
     </div>
   );
 
-  if (nav.s === 'project' && project) {
+  const screenProject = () => {
+    if (!project) return null;
     const docs = project.documents || [];
     return (
       <div className="wa-screen" style={{ background: BG }}>
@@ -377,6 +390,7 @@ export default function OwnerMobileApp() {
             <div className="wa-title">{project.title}</div>
             <div className="wa-sub" style={{ color: pColor(project.status) }}>{project.status}</div>
           </div>
+          {project.previewUrl && <a className="btn-icon" href={project.previewUrl} target="_blank" rel="noreferrer" aria-label="Open preview" title="Open preview"><ExternalLink size={19} /></a>}
           {project.clientCode && <button className="btn-icon" onClick={() => copy(clientLink(project.clientCode), 'Client link copied')} aria-label="Copy client link"><LinkIcon size={19} /></button>}
         </div>
         <div className="wa-tabs">
@@ -439,7 +453,7 @@ export default function OwnerMobileApp() {
   }
 
   // ── ORG FORM ──
-  if (nav.s === 'org' || nav.s === 'neworg') {
+  const screenOrg = () => {
     const creating = nav.s === 'neworg';
     return (
       <div className="wa-screen" style={{ background: BG }}>
@@ -479,7 +493,7 @@ export default function OwnerMobileApp() {
   }
 
   // ── ROOT TABS ──
-  if (nav.s === 'projects') {
+  const screenProjects = () => {
     const list = projects.filter(p => (filter === 'all' || p.status === filter) && match(p.title, p.clientCode, p.agencyId?.name, p.clientOrgId?.name));
     return (
       <div className="wa-screen" style={{ background: BG }}>
@@ -515,7 +529,7 @@ export default function OwnerMobileApp() {
     );
   }
 
-  if (nav.s === 'orgs') {
+  const screenOrgs = () => {
     const list = orgs.filter(o => o.type !== 'owner' && (filter === 'all' || o.type === filter) && match(o.name, o.code));
     return (
       <div className="wa-screen" style={{ background: BG }}>
@@ -545,7 +559,7 @@ export default function OwnerMobileApp() {
     );
   }
 
-  if (nav.s === 'more') return (
+  const screenMore = () => (
     <div className="wa-screen" style={{ background: BG }}>
       <div className="wa-head wa-home-head"><div className="wa-title" style={{ fontSize: '1.25rem' }}>Settings</div></div>
       <div className="wa-body wa-form">
@@ -569,7 +583,8 @@ export default function OwnerMobileApp() {
     </div>
   );
 
-  // inbox (default)
+  // inbox
+  const screenInbox = () => {
   const list = (activity || []).filter(r => {
     if (filter === 'unread' && !ownerUnread(r)) return false;
     if (filter === 'open' && !(r.status === 'open' || r.status === 'in-progress')) return false;
@@ -594,6 +609,37 @@ export default function OwnerMobileApp() {
         {list.map(r => <ConvRow key={r.id} r={r} showProject sub={sub(r)} onClick={() => push({ s: 'chat', rid: r.id, pid: r.projectId })} />)}
       </div>
       {tabbar()}{toastEl()}
+    </div>
+  );
+  };
+
+  const DETAIL = { chat: screenChat, newproject: screenNewProject, project: screenProject, org: screenOrg, neworg: screenOrg };
+  const ROOT = { inbox: screenInbox, projects: screenProjects, orgs: screenOrgs, more: screenMore };
+
+  if (!desktop) return (DETAIL[nav.s] || ROOT[nav.s] || screenInbox)();
+
+  // two-pane layout: side rail | list | conversation, project or form
+  const rootFn = ROOT[rootTab] || screenInbox;
+  const detailFn = DETAIL[nav.s];
+  return (
+    <div className="wa-desktop">
+      <nav className="wa-rail">
+        <div className="wa-rail-logo" style={{ background: 'linear-gradient(135deg,#FF7035,#FF9F00)', color: '#000' }}>DT</div>
+        {tabBarEl()}
+        <div style={{ flex: 1 }} />
+        <button className="wa-rail-out" onClick={logout} aria-label="Logout" title="Logout"><LogOut size={20} /></button>
+      </nav>
+      <section className="wa-left">{rootFn()}</section>
+      <section className="wa-right">
+        {detailFn ? detailFn() : (
+          <div className="wa-placeholder">
+            <div className="wa-blank-icon" style={{ background: ACCENT_LT, color: ACCENT }}><MessageSquarePlus size={30} /></div>
+            <h3>DT Solution</h3>
+            <p>Select a conversation, project or client to get started.</p>
+          </div>
+        )}
+      </section>
+      {toastNode()}
     </div>
   );
 }

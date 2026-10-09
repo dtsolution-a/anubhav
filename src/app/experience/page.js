@@ -1,44 +1,16 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
-import { useDesktop, useIsMobile } from '@/lib/useDesktop';
-import PreviewLock from '@/components/PreviewLock';
-import dynamic from 'next/dynamic';
-const ClientMobileApp = dynamic(() => import('@/components/ClientMobileApp'), { ssr: false });
+import { useIsMobile } from '@/lib/useDesktop';
+import ClientMobileApp from '@/components/ClientMobileApp';
 
-const DEVICES = [
-  { id: 'desktop', label: 'Desktop',     icon: '🖥', frameClass: 'frame-desktop' },
-  { id: 'air',     label: 'MacBook Air', icon: '💻', frameClass: 'frame-air'     },
-  { id: 'pro',     label: 'MacBook Pro', icon: '💻', frameClass: 'frame-pro'     },
-  { id: 'ipad',    label: 'iPad Pro',    icon: '📱', frameClass: 'frame-ipad'    },
-  { id: 'iphone',  label: 'iPhone 16',   icon: '📱', frameClass: 'frame-iphone'  },
-];
-
+// The client portal: chat-style app on phones, two-pane app (plus live preview) on laptops.
 export default function ExperiencePage() {
-  const [data, setData]       = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
-  const [device, setDevice]   = useState('desktop');
-  const [active, setActive]   = useState(false); // iframe activated
-  const [fsOpen, setFsOpen]   = useState(false);
-  
-  // Revisions State
-  const [revisions, setRevisions] = useState([]);
-  const [showRevModal, setShowRevModal] = useState(false);
-  const [revTitle, setRevTitle] = useState('');
-  const [revDesc, setRevDesc] = useState('');
-  const [replyText, setReplyText] = useState({});
-  const [replyImgs, setReplyImgs] = useState({});
-  const [expandedRevId, setExpandedRevId] = useState(null);
-  const [previewImage, setPreviewImage] = useState(null);
-  const chatEndRefs = useRef({});
-
+  const [error, setError] = useState('');
+  const narrow = useIsMobile(700);
   const router = useRouter();
-  const isDesktop = useDesktop();
-  const isMobileView = useIsMobile();
-  const canPreview = isDesktop === true;
-  const fsRef  = useRef(null);
 
   useEffect(() => {
     fetch('/api/experience')
@@ -46,142 +18,28 @@ export default function ExperiencePage() {
         if (r.status === 401 || r.status === 403) { router.push('/'); return null; }
         return r.json();
       })
-      .then(d => { 
-        if (d) {
-          setData(d); 
-          // Fetch revisions for this project (phones use the lighter activity feed instead)
-          if (d.project?._id && window.innerWidth > 640) {
-            fetch(`/api/revisions?projectId=${d.project._id}`)
-              .then(res => res.json())
-              .then(revs => setRevisions(revs))
-              .catch(console.error);
-          }
-        } 
-      })
+      .then(d => { if (d) setData(d); })
       .catch(() => setError('Failed to load experience data.'))
       .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') setFsOpen(false); }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
-
-  // ── Silent polling: auto-fetch open revision thread every 4 seconds ──
-  const pollRevision = useCallback(async (revId) => {
-    try {
-      const res = await fetch(`/api/revisions/${revId}`);
-      if (!res.ok) return;
-      const updated = await res.json();
-      setRevisions(prev => {
-        const existing = prev.find(r => (r._id || r.id) === revId);
-        if (!existing) return prev;
-        if (
-          (updated.thread?.length || 0) !== (existing.thread?.length || 0) ||
-          updated.status !== existing.status
-        ) {
-          return prev.map(r => (r._id || r.id) === revId ? updated : r);
-        }
-        return prev;
-      });
-    } catch { /* silent */ }
-  }, []);
-
-  useEffect(() => {
-    if (!expandedRevId) return;
-    pollRevision(expandedRevId);
-    const interval = setInterval(() => pollRevision(expandedRevId), 4000);
-    return () => clearInterval(interval);
-  }, [expandedRevId, pollRevision]);
-
-  useEffect(() => {
-    if (!expandedRevId) return;
-    chatEndRefs.current[expandedRevId]?.scrollIntoView({ block: 'end' });
-  }, [expandedRevId, revisions, showRevModal]);
+  }, [router]);
 
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/');
   }
 
-  const handleRaiseRevision = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await fetch('/api/revisions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId: data.project._id, title: revTitle, message: revDesc })
-      });
-      if (!res.ok) throw new Error();
-      const newRev = await res.json();
-      setRevisions(prev => [newRev, ...prev]);
-      setRevTitle('');
-      setRevDesc('');
-      setExpandedRevId(newRev._id || newRev.id);
-    } catch (err) {
-      alert('Failed to raise revision');
-    }
-  };
-
-  const handlePaste = (e, revId) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
-        const file = items[i].getAsFile();
-        const reader = new FileReader();
-        reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
-        reader.readAsDataURL(file);
-        break;
-      }
-    }
-  };
-
-  const handleReplyRevision = async (revId) => {
-    const msg = replyText[revId];
-    const img = replyImgs[revId];
-    if (!msg && !img) return;
-    try {
-      const res = await fetch(`/api/revisions/${revId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _addMessage: { message: msg || 'Uploaded an image', imageUrl: img } })
-      });
-      if (!res.ok) throw new Error();
-      const updatedRev = await res.json();
-      setRevisions(prev => prev.map(r => (r._id || r.id) === revId ? updatedRev : r));
-      setReplyText({ ...replyText, [revId]: '' });
-      setReplyImgs({ ...replyImgs, [revId]: null });
-    } catch (err) {
-      alert('Failed to post reply');
-    }
-  };
-
-  const handleDeleteRevision = async (revId) => {
-    if (!confirm('Are you sure you want to delete this revision from your view?')) return;
-    try {
-      const res = await fetch(`/api/revisions/${revId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
-      setRevisions(prev => prev.filter(r => (r._id || r.id) !== revId));
-      if (expandedRevId === revId) setExpandedRevId(null);
-    } catch (err) {
-      alert('Failed to delete revision');
-    }
-  };
-
-  if (loading) return (
-    <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'#fff', textAlign:'center', padding:'2rem' }}>
-      <span className="spinner" style={{ width:40, height:40, marginBottom:'2rem' }} />
-      <h2 style={{ fontSize:'1.5rem', fontWeight:600, color:'var(--accent)', marginBottom:'0.5rem', fontFamily:'serif', letterSpacing:'1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
-      <p style={{ fontSize:'0.9rem', color:'var(--text-muted)', maxWidth:'300px', lineHeight:1.5 }}>Patience is the key to accomplishing everything.</p>
+  if (loading || narrow === null) return (
+    <div style={{ minHeight: '100dvh', background: '#0a0807', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', textAlign: 'center', padding: '2rem' }}>
+      <span className="spinner" style={{ width: 40, height: 40, marginBottom: '2rem' }} />
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--accent)', marginBottom: '0.5rem', fontFamily: 'serif', letterSpacing: '1px' }}>धैर्यं सर्वत्र साधनम्।</h2>
+      <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', maxWidth: '300px', lineHeight: 1.5 }}>Patience is the key to accomplishing everything.</p>
     </div>
   );
 
   if (error || !data) return (
-    <div style={{ minHeight:'100vh', background:'#0a0807', display:'flex', alignItems:'center', justifyContent:'center', color:'#a09890', fontFamily:'Inter,sans-serif' }}>
-      <div style={{ textAlign:'center' }}>
-        <p style={{ marginBottom:'1rem' }}>{error || 'Experience not found.'}</p>
+    <div style={{ minHeight: '100dvh', background: '#0a0807', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a09890', fontFamily: 'Inter,sans-serif' }}>
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ marginBottom: '1rem' }}>{error || 'Experience not found.'}</p>
         <button className="btn-ghost" onClick={() => router.push('/')}>← Back</button>
       </div>
     </div>
@@ -189,315 +47,21 @@ export default function ExperiencePage() {
 
   const { project, clientOrg, brand } = data;
   const B = brand || {};
-  const accent    = B.accentColor     || '#FF7035';
-  const accentSec = B.accentSecondary || '#FF9F00';
-  const accentGlow= B.accentGlow      || 'rgba(255,112,53,0.28)';
-  const accentLt  = B.accentLight     || 'rgba(255,112,53,0.1)';
-  const bgBase    = B.bgBase          || '#0a0807';
-  const currentDevice = DEVICES.find(d => d.id === device) || DEVICES[0];
+  const accent = B.accentColor || '#FF7035';
+  const accentLt = /^#[0-9a-f]{6}$/i.test(accent) ? `${accent}22` : (B.accentLight || 'rgba(255,112,53,0.1)');
 
-  // Phones get a dedicated chat-style app instead of the desktop layout
-  if (isMobileView) {
-    return (
+  return (
+    <div style={{ '--accent': accent, '--accent-secondary': B.accentSecondary || '#FF9F00', '--accent-glow': B.accentGlow || 'rgba(255,112,53,0.28)', '--accent-light': accentLt }}>
       <ClientMobileApp
+        layout={narrow ? 'mobile' : 'desktop'}
         project={project}
         clientOrg={clientOrg}
         brand={B}
         accent={accent}
         accentLt={accentLt}
-        bgBase={bgBase}
+        bgBase={B.bgBase || '#0a0807'}
         onLogout={logout}
       />
-    );
-  }
-
-  const isMobile = !!isMobileView;
-  const renderMessages = (rev, revId) => (
-    <div style={{ display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'1.5rem' }}>
-                            {(rev.thread || []).map((msg, i) => {
-                              const isMe = msg.authorType === 'client';
-                              const roleStr = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
-                              return (
-                                <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'88%', minWidth:0, wordBreak:'break-word' }}>
-                                  <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.25rem', display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap:'0.4rem' }}>
-                                    <strong style={{ color: isMe ? accent : '#fff' }}>{roleStr}</strong>
-                                    <span>{new Date(msg.timestamp || msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                                  </div>
-                                  <div style={{ 
-                                    padding:'0.75rem 1rem', 
-                                    background: isMe ? accent : 'rgba(255,255,255,0.08)', 
-                                    color: isMe ? '#000' : '#fff',
-                                    borderRadius:'12px',
-                                    borderBottomRightRadius: isMe ? '2px' : '12px',
-                                    borderBottomLeftRadius: isMe ? '12px' : '2px',
-                                    fontSize:'0.85rem',
-                                    lineHeight:1.4
-                                  }}>
-                                    {msg.message}
-                                  </div>
-                                  {msg.imageUrl && (
-                                    <img 
-                                      src={msg.imageUrl} 
-                                      alt="attachment" 
-                                      onClick={() => setPreviewImage(msg.imageUrl)}
-                                      style={{ cursor: 'pointer', maxWidth:'min(280px, 100%)', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} 
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
-                            <div ref={el => { if(el) chatEndRefs.current[revId] = el; }} />
-                          </div>
-  );
-  const renderReplyBar = (rev, revId) => (
-    <>{rev.status !== 'closed' && rev.status !== 'resolved' && (
-                            <>
-                              {replyImgs[revId] && (
-                                <div style={{ marginBottom: '0.75rem', position: 'relative', display: 'inline-block' }}>
-                                  <img src={replyImgs[revId]} alt="preview" style={{ maxHeight: '100px', borderRadius: '8px', border: '1px solid var(--bg-border)' }} />
-                                  <button onClick={() => setReplyImgs(prev => ({...prev, [revId]: null}))} style={{ position: 'absolute', top: -8, right: -8, background: '#ef4444', color: '#fff', border: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                                </div>
-                              )}
-                              <div style={{ display:'flex', gap:'0.75rem', alignItems:'flex-end' }}>
-                                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', transition: 'all 0.2s', flexShrink: 0 }}>
-                                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                      const reader = new FileReader();
-                                      reader.onloadend = () => setReplyImgs(prev => ({ ...prev, [revId]: reader.result }));
-                                      reader.readAsDataURL(file);
-                                    }
-                                  }} />
-                                  <Paperclip size={20} />
-                                </label>
-                                <textarea 
-                                  className="textarea" 
-                                  placeholder="Reply... (paste image here)" 
-                                  value={replyText[revId] || ''} 
-                                  onChange={e => setReplyText({...replyText, [revId]: e.target.value})} 
-                                  onPaste={e => handlePaste(e, revId)}
-                                  style={{ flex:1, minHeight:'44px', padding:'0.6rem 1rem', borderRadius:'24px', background:'rgba(0,0,0,0.3)', resize:'none' }}
-                                  rows={1}
-                                ></textarea>
-                                <button className="btn-primary" onClick={() => handleReplyRevision(revId)} disabled={(!replyText[revId]?.trim() && !replyImgs[revId])} style={{ background:accent, color:'#000', borderRadius:'50%', width:'44px', height:'44px', padding:0, display:'flex', alignItems:'center', justifyContent:'center', border:'none', cursor: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 'not-allowed' : 'pointer', opacity: (!replyText[revId]?.trim() && !replyImgs[revId]) ? 0.5 : 1 }}>
-                                  <Send size={18} />
-                                </button>
-                              </div>
-                            </>
-                          )}</>
-  );
-
-  return (
-    <div style={{ minHeight:'100dvh', display:'flex', flexDirection:'column', background: bgBase, '--accent': accent, '--accent-secondary': accentSec, '--accent-glow': accentGlow, '--accent-light': accentLt, '--accent-gradient': `linear-gradient(135deg,${accent},${accentSec})` }}>
-      <div className="bg-grid" />
-
-      {/* ── Header ── */}
-      <header className="exp-header" style={{ background:`${bgBase}cc` }}>
-        <div className="exp-brand">
-          <div style={{ flexShrink:0, width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${accent},${accentSec})`, color:'#fff', fontFamily:'Outfit,sans-serif', fontSize:'0.75rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            {B.logoText || '◆'}
-          </div>
-          <span className="exp-brand-name">{B.name || brand?.name}</span>
-        </div>
-
-        <div className="exp-pill" style={{ display:'flex', alignItems:'center', gap:'0.5rem', fontSize:'0.72rem', fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color: accent, background: accentLt, border:`1px solid ${accent}55`, borderRadius:100, padding:'0.28rem 0.85rem' }}>
-          <span className="badge-dot" style={{ background: accent }} />
-          Experience Centre
-        </div>
-
-        <div className="exp-actions">
-          <button 
-            className="btn-ghost" 
-            style={{ fontSize:'0.76rem', padding:'0.4rem 1rem', display:'flex', alignItems:'center', gap:'0.4rem', border:`1px solid ${accentLt}`, color: accent }} 
-            onClick={() => setShowRevModal(true)}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-            Revisions
-          </button>
-          <span className="exp-deva" style={{ fontSize:'1rem', fontFamily:'Noto Sans Devanagari, serif', color:'var(--text-muted)', lineHeight:1.4 }}>अनुभवः</span>
-          <button className="btn-ghost" style={{ fontSize:'0.76rem', padding:'0.28rem 0.7rem' }} onClick={logout}>Exit</button>
-        </div>
-      </header>
-
-      {/* ── Hero ── */}
-      <div className="exp-hero">
-        <div className="glow-orb" style={{ maxWidth:'100%', width:500, height:250, background: accentGlow, top:-60, left:'50%', transform:'translateX(-50%)' }} />
-        <div style={{ position:'relative', zIndex:1 }}>
-          <p style={{ fontSize:'0.75rem', letterSpacing:'0.26em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:'0.7rem' }}>Welcome,</p>
-          <h1 style={{ fontFamily:'Outfit,sans-serif', fontSize:'clamp(1.6rem,3vw,2.4rem)', fontWeight:800, letterSpacing:'-0.02em', color:'#f4f0ec', marginBottom:'0.6rem' }}>
-            {project.title}
-          </h1>
-          <p style={{ fontSize:'0.88rem', color:'var(--text-secondary)', marginBottom:'1rem' }}>
-            Crafted with excellence by <strong style={{ color:'#f4f0ec' }}>{B.name}</strong>
-          </p>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:'0.5rem', fontSize:'0.78rem', color:'var(--text-secondary)', background:'rgba(255,255,255,0.04)', border:'1px solid var(--bg-border)', borderRadius:100, padding:'0.35rem 1rem' }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            {clientOrg?.name}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Device selector ── */}
-      {canPreview && <div className="device-bar" style={{ background:'var(--bg-surface)', position:'relative', zIndex:10 }}>
-        <div className="device-opts">
-          {DEVICES.map(d => (
-            <button
-              key={d.id}
-              className={`device-opt ${device === d.id ? 'active' : ''}`}
-              style={device === d.id ? { background: accent, color:'#fff' } : {}}
-              onClick={() => { setDevice(d.id); setActive(false); }}
-            >
-              <span>{d.icon}</span>
-              <span>{d.label}</span>
-            </button>
-          ))}
-        </div>
-        <button className="btn-ghost" style={{ fontSize:'0.75rem', gap:'0.4rem' }} onClick={() => setFsOpen(true)}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-          Full Screen
-        </button>
-      </div>}
-
-      {/* ── Preview ── */}
-      <div className="exp-preview-section" style={{ position:'relative', zIndex:1 }}>
-        {isDesktop === null ? null : !canPreview ? <PreviewLock /> : <div className="preview-wrap">
-          <div className="preview-toolbar">
-            <div className="toolbar-dots"><div className="dot dot-r"/><div className="dot dot-y"/><div className="dot dot-g"/></div>
-            <div className="toolbar-url" style={{ color: project.status === 'delivered' ? 'var(--text-muted)' : 'rgba(255,180,50,0.65)', background: project.status === 'delivered' ? 'var(--bg-base)' : 'rgba(255,180,50,0.04)' }}>
-              {project.status === 'delivered' ? (project.previewUrl || 'No URL') : '🔒 Preview Mode — Confidential'}
-            </div>
-            {project.status === 'delivered' && project.previewUrl && (
-              <a href={project.previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ fontSize:'0.73rem', padding:'0.32rem 0.75rem' }}>
-                Open Live ↗
-              </a>
-            )}
-          </div>
-
-          <div className={`iframe-area ${currentDevice.frameClass}`}>
-            {!active ? (
-              <div
-                onClick={() => setActive(true)}
-                style={{ position:'absolute', inset:0, background:'rgba(8,8,14,0.78)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'0.75rem', cursor:'pointer', zIndex:5, backdropFilter:'blur(8px)' }}
-              >
-                <div style={{ width:68, height:68, borderRadius:'50%', background:`linear-gradient(135deg,${accent},${accentSec})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 8px 32px ${accentGlow}` }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                </div>
-                <p style={{ fontFamily:'Outfit,sans-serif', fontWeight:600, color:'#f4f0ec' }}>Click to Preview</p>
-                <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>{currentDevice.label} view</span>
-              </div>
-            ) : null}
-            {project.previewUrl && (
-              <iframe
-                src={project.previewUrl}
-                title={project.title}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                style={{ width:'100%', height:'100%', border:'none', display:'block' }}
-              />
-            )}
-          </div>
-        </div>}
-      </div>
-
-      {/* ── Footer ── */}
-      <footer className="exp-footer" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.6rem', padding:'1rem', borderTop:'1px solid var(--bg-border)', fontSize:'0.76rem', color:'var(--text-muted)', background: bgBase }}>
-        <span>Powered by</span>
-        <span style={{ fontFamily:'Noto Sans Devanagari, serif', fontSize:'0.88rem', color:'var(--text-secondary)' }}>अनुभवः</span>
-        <span>·</span>
-        <button className="btn-ghost" style={{ fontSize:'0.76rem', padding:'0.28rem 0.7rem' }} onClick={logout}>← Back</button>
-      </footer>
-
-      {/* ── Fullscreen Modal ── */}
-      <div className={`fs-modal ${fsOpen ? 'open' : ''}`}>
-        <div className="fs-modal-header">
-          <span style={{ fontFamily:'Outfit,sans-serif', fontWeight:600, fontSize:'0.88rem' }}>{project.title} — Full Preview</span>
-          <button className="btn-icon" onClick={() => setFsOpen(false)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-        {canPreview && project.previewUrl && fsOpen && (
-          <iframe src={project.previewUrl} title="Full Preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ flex:1, border:'none', width:'100%' }} />
-        )}
-      </div>
-
-      {/* ── Revisions Modal ── */}
-      {showRevModal && (
-        <div className="rev-overlay" style={{ position:'fixed', inset:0, zIndex:200, display:'flex', justifyContent:'flex-end', background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
-          <div className="rev-panel" style={{ width:'100%', maxWidth:'500px', height:'100%', background: bgBase, borderLeft:`1px solid ${accentLt}`, display:'flex', flexDirection:'column', boxShadow:'-10px 0 40px rgba(0,0,0,0.3)', animation:'slideInRight 0.3s ease' }}>
-            <div className="rev-panel-head" style={{ padding:'1.5rem', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <h2 style={{ fontFamily:'Outfit,sans-serif', fontSize:'1.2rem', fontWeight:600, color:'#fff', margin:0 }}>Revisions & Feedback</h2>
-              <button className="btn-icon" onClick={() => setShowRevModal(false)}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            
-            <div className="rev-panel-body" style={{ flex:1, overflowY:'auto', padding:'1.5rem' }}>
-              <form onSubmit={handleRaiseRevision} style={{ background:'rgba(255,255,255,0.02)', padding:'1.25rem', borderRadius:'12px', border:`1px solid ${accentLt}`, marginBottom:'2rem' }}>
-                <h3 style={{ fontSize:'0.9rem', color:'#fff', marginBottom:'1rem', marginTop:0 }}>Raise New Revision</h3>
-                <input type="text" className="input" placeholder="Title (e.g. Change logo color)" value={revTitle} onChange={e => setRevTitle(e.target.value)} required style={{ marginBottom:'0.75rem', background:'rgba(0,0,0,0.3)' }} />
-                <textarea className="textarea" placeholder="Describe the changes needed..." value={revDesc} onChange={e => setRevDesc(e.target.value)} required style={{ minHeight:'80px', marginBottom:'1rem', background:'rgba(0,0,0,0.3)' }}></textarea>
-                <button type="submit" className="btn-primary" style={{ width:'100%', background: accent, color:'#000' }}>Submit Revision</button>
-              </form>
-
-              <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
-                {revisions.map(rev => {
-                  const revId = rev._id || rev.id;
-                  const isExpanded = expandedRevId === revId;
-                  return (
-                    <div key={revId} style={{ background:'rgba(255,255,255,0.02)', borderRadius:'12px', border:'1px solid rgba(255,255,255,0.05)', overflow:'hidden' }}>
-                      <div 
-                        style={{ padding:'1.25rem', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent' }}
-                        onClick={() => setExpandedRevId(isExpanded ? null : revId)}
-                      >
-                        <div>
-                          <div style={{ display:'flex', gap:'0.5rem', alignItems:'center', marginBottom:'0.25rem' }}>
-                            <strong style={{ color:'#fff', fontSize:'0.95rem' }}>{rev.title}</strong>
-                            <span style={{ fontSize:'0.65rem', padding:'0.15rem 0.5rem', borderRadius:'100px', background: rev.status==='resolved'?'#a8ff78':(rev.status==='closed'?'#333':accentLt), color:rev.status==='resolved'?'#000':(rev.status==='closed'?'#888':accent), textTransform:'uppercase', fontWeight:600 }}>{rev.status}</span>
-                          </div>
-                          <div style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{new Date(rev.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
-                          <button 
-                            style={{ color:'#ef4444', padding:'0.3rem', fontSize:'0.8rem', background:'transparent', border:'none', cursor:'pointer' }}
-                            onClick={(e) => { e.stopPropagation(); handleDeleteRevision(revId); }}
-                            title="Delete Revision"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                          <span style={{ color:'var(--text-muted)', fontSize:'0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}>▼</span>
-                        </div>
-                      </div>
-
-                      {isExpanded && (
-                        <div className="rev-thread" style={{ padding:'1.25rem', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-                          {renderMessages(rev, revId)}
-                          {renderReplyBar(rev, revId)}
-                          </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes slideInRight {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-      `}} />
-      {/* Image Preview Modal */}
-      {previewImage && (
-        <div 
-          onClick={() => setPreviewImage(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}
-        >
-          <img src={previewImage} alt="preview" style={{ maxHeight: '90vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }} />
-        </div>
-      )}
     </div>
   );
 }
-

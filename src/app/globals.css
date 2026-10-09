@@ -1262,3 +1262,9 @@ html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transpare
 .wa-placeholder h3 { font-family: var(--font-head); font-size: 1.2rem; }
 .wa-placeholder p { color: var(--text-muted); font-size: 0.9rem; }
 .wa-desktop .wa-placeholder { background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 18px 18px; }
+
+/* client desktop: preview panel inside the two-pane shell */
+.wa-preview-panel { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.wa-preview-panel .device-bar { flex-shrink: 0; }
+.wa-preview-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 1.25rem; }
+.wa-desktop .fs-modal { z-index: 9999; }

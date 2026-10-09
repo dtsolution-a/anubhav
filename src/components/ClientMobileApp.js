@@ -1,13 +1,18 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ArrowLeft, Plus, LogOut, Trash2, Lock, MessageSquarePlus, Send } from 'lucide-react';
+import { ArrowLeft, Plus, LogOut, Trash2, Lock, MessageSquarePlus, Send, MessagesSquare, Monitor } from 'lucide-react';
+import PreviewLock from './PreviewLock';
+import { useDesktop } from '@/lib/useDesktop';
 import ChatScreen from './mobile/ChatScreen';
 import NotifyButton from './NotifyButton';
 import { listTime, rowUnread, statusColor, setAppBadge } from './mobile/shared';
 
 // Phone experience for the end client: request list -> chat, like WhatsApp.
 // The list runs on the lightweight /api/activity feed; a full thread is only fetched for the open chat.
-export default function ClientMobileApp({ project, clientOrg, brand, accent, accentLt, bgBase, onLogout }) {
+export default function ClientMobileApp({ project, clientOrg, brand, accent, accentLt, bgBase, onLogout, layout = 'mobile' }) {
+  const desktop = layout === 'desktop';
+  const canPreview = useDesktop() === true;
+  const [ctab, setCtab] = useState('chats'); // desktop rail: chats | preview
   const projectId = String(project._id || project.id);
   const [rows, setRows] = useState(null);
   const [fulls, setFulls] = useState({});
@@ -141,7 +146,7 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     } catch { alert('Failed to delete.'); }
   }
 
-  if (screen === 'new') return (
+  const screenNew = () => (
     <div className="wa-screen" style={{ background: bgBase }}>
       <div className="wa-head">
         <button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button>
@@ -158,7 +163,7 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     </div>
   );
 
-  if (screen === 'chat') {
+  const screenChat = () => {
     const row = (rows || []).find(r => r.id === openId);
     if (!rev) return (
       <div className="wa-screen" style={{ background: bgBase }}>
@@ -185,7 +190,7 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     );
   }
 
-  return (
+  const screenHome = () => (
     <div className="wa-screen wa-home" style={{ background: bgBase }}>
       <div className="wa-head wa-home-head">
         <div className="wa-avatar" style={{ background: `linear-gradient(135deg, ${accent}, ${brand?.accentSecondary || accent})`, color: '#fff', fontSize: '0.8rem' }}>
@@ -195,12 +200,12 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
           <div className="wa-title">{project.title}</div>
           <div className="wa-sub" style={{ textTransform: 'none' }}>{clientOrg?.name} · by {brand?.name}</div>
         </div>
-        <button className="btn-icon" onClick={onLogout} aria-label="Exit"><LogOut size={20} /></button>
+        {!desktop && <button className="btn-icon" onClick={onLogout} aria-label="Exit"><LogOut size={20} /></button>}
       </div>
 
       <div className="wa-body">
         <NotifyButton accent={accent} />
-        <div className="wa-note"><Lock size={14} /> Website preview opens on desktop only. Share your changes here instead.</div>
+        {!desktop && <div className="wa-note"><Lock size={14} /> Website preview opens on desktop only. Share your changes here instead.</div>}
 
         {rows === null && (
           <div className="wa-skel">{[0, 1, 2].map(i => <div key={i} className="wa-skel-row"><i /><span><b /><b /></span></div>)}</div>
@@ -241,6 +246,117 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
         <button className="wa-fab wa-fab-ext" style={{ background: accent }} onClick={() => go('new')}>
           <Plus size={22} /> New request
         </button>
+      )}
+    </div>
+  );
+
+  if (!desktop) {
+    if (screen === 'new') return screenNew();
+    if (screen === 'chat') return screenChat();
+    return screenHome();
+  }
+
+  // laptops: rail | requests | conversation  (or the live website preview)
+  return (
+    <div className="wa-desktop" style={{ '--accent': accent, '--accent-light': accentLt }}>
+      <nav className="wa-rail">
+        <div className="wa-rail-logo" style={{ background: `linear-gradient(135deg, ${accent}, ${brand?.accentSecondary || accent})` }}>{brand?.logoText || '◆'}</div>
+        <div className="wa-tabbar">
+          <button className={ctab === 'chats' ? 'on' : ''} onClick={() => setCtab('chats')}>
+            <span className="wa-tab-ic"><MessagesSquare size={22} />{totalUnread > 0 && <i className="wa-tab-badge">{totalUnread > 99 ? '99+' : totalUnread}</i>}</span>
+            Requests
+          </button>
+          <button className={ctab === 'preview' ? 'on' : ''} onClick={() => setCtab('preview')}>
+            <span className="wa-tab-ic"><Monitor size={22} /></span>
+            Preview
+          </button>
+        </div>
+        <div style={{ flex: 1 }} />
+        <button className="wa-rail-out" onClick={onLogout} aria-label="Exit" title="Exit"><LogOut size={20} /></button>
+      </nav>
+
+      {ctab === 'preview' ? (
+        <section className="wa-right"><PreviewPanel project={project} accent={accent} canPreview={canPreview} /></section>
+      ) : (
+        <>
+          <section className="wa-left">{screenHome()}</section>
+          <section className="wa-right">
+            {screen === 'chat' ? screenChat() : screen === 'new' ? screenNew() : (
+              <div className="wa-placeholder">
+                <div className="wa-blank-icon" style={{ background: accentLt, color: accent }}><MessageSquarePlus size={30} /></div>
+                <h3>{project.title}</h3>
+                <p>Select a request, or start a new one, to chat with the team.</p>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}
+
+const DEVICES = [
+  ['desktop', 'Desktop', '🖥'], ['air', 'MacBook Air', '💻'], ['pro', 'MacBook Pro', '💻'], ['ipad', 'iPad Pro', '📱'], ['iphone', 'iPhone 16', '📱'],
+];
+
+// Live website preview (laptops only): device frames, click-to-load, full screen.
+function PreviewPanel({ project, accent, canPreview }) {
+  const [device, setDevice] = useState('desktop');
+  const [active, setActive] = useState(false);
+  const [fs, setFs] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setFs(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  if (!canPreview) return <div style={{ padding: '2rem' }}><PreviewLock /></div>;
+  if (!project.previewUrl) return <div className="wa-placeholder"><h3>No preview yet</h3><p>Your website preview will appear here as soon as it is ready.</p></div>;
+
+  const delivered = project.status === 'delivered';
+  return (
+    <div className="wa-preview-panel">
+      <div className="device-bar">
+        <div className="device-opts">
+          {DEVICES.map(([id, label, icon]) => (
+            <button key={id} className={`device-opt ${device === id ? 'active' : ''}`} style={device === id ? { background: accent } : undefined} onClick={() => { setDevice(id); setActive(false); }}>
+              <span>{icon}</span><span>{label}</span>
+            </button>
+          ))}
+        </div>
+        <button className="btn-ghost" onClick={() => setFs(true)}>Full screen</button>
+      </div>
+      <div className="wa-preview-scroll">
+        <div className="preview-wrap">
+          <div className="preview-toolbar">
+            <div className="toolbar-dots"><div className="dot dot-r" /><div className="dot dot-y" /><div className="dot dot-g" /></div>
+            <div className="toolbar-url" style={{ color: delivered ? 'var(--text-muted)' : 'rgba(255,180,50,0.65)' }}>
+              {delivered ? project.previewUrl : '🔒 Preview Mode — Confidential'}
+            </div>
+            {delivered && <a href={project.previewUrl} target="_blank" rel="noreferrer" className="btn-ghost" style={{ fontSize: '0.73rem', padding: '0.32rem 0.75rem' }}>Open Live ↗</a>}
+          </div>
+          <div className={`iframe-area frame-${device}`}>
+            {!active && (
+              <div onClick={() => setActive(true)} style={{ position: 'absolute', inset: 0, background: 'rgba(8,8,14,0.78)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', cursor: 'pointer', zIndex: 5, backdropFilter: 'blur(8px)' }}>
+                <div style={{ width: 68, height: 68, borderRadius: '50%', background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                </div>
+                <p style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 600 }}>Click to Preview</p>
+              </div>
+            )}
+            <iframe src={project.previewUrl} title={project.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ width: '100%', height: '100%', border: 'none', display: 'block' }} />
+          </div>
+        </div>
+      </div>
+      {fs && (
+        <div className="fs-modal open">
+          <div className="fs-modal-header">
+            <span style={{ fontFamily: 'Outfit,sans-serif', fontWeight: 600, fontSize: '0.88rem' }}>{project.title} — Full Preview</span>
+            <button className="btn-icon" onClick={() => setFs(false)} aria-label="Close"><ArrowLeft size={18} /></button>
+          </div>
+          <iframe src={project.previewUrl} title="Full Preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ flex: 1, border: 'none', width: '100%' }} />
+        </div>
       )}
     </div>
   );
