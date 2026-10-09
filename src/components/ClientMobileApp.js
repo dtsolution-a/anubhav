@@ -3,13 +3,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Plus, LogOut, Trash2, Lock, MessageSquarePlus, Send } from 'lucide-react';
 import ChatScreen from './mobile/ChatScreen';
 import NotifyButton from './NotifyButton';
-import { idOf, timeOf, listTime, unreadFor, statusColor, setAppBadge } from './mobile/shared';
+import { listTime, rowUnread, statusColor, setAppBadge } from './mobile/shared';
 
 // Phone experience for the end client: request list -> chat, like WhatsApp.
+// The list runs on the lightweight /api/activity feed; a full thread is only fetched for the open chat.
 export default function ClientMobileApp({ project, clientOrg, brand, accent, accentLt, bgBase, onLogout }) {
-  const projectId = project._id || project.id;
-  const [revisions, setRevisions] = useState([]);
-  const [loaded, setLoaded] = useState(false);
+  const projectId = String(project._id || project.id);
+  const [rows, setRows] = useState(null);
+  const [fulls, setFulls] = useState({});
   const [screen, setScreen] = useState('home'); // home | chat | new
   const [openId, setOpenId] = useState(null);
   const [newTitle, setNewTitle] = useState('');
@@ -19,21 +20,40 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
 
   const loadList = useCallback(async () => {
     try {
-      const res = await fetch(`/api/revisions?projectId=${projectId}`);
+      const res = await fetch('/api/activity');
       if (!res.ok) return;
       const list = await res.json();
-      // keep optimistic messages while a send is in flight
-      setRevisions(prev => (sendingRef.current ? prev : list));
-    } catch {} finally { setLoaded(true); }
+      setRows(list.filter(r => r.projectId === projectId));
+    } catch { setRows(prev => prev || []); }
   }, [projectId]);
+
+  const loadFull = useCallback(async (id) => {
+    try {
+      const res = await fetch(`/api/revisions/${id}`);
+      if (!res.ok) return;
+      const rev = await res.json();
+      setFulls(prev => {
+        const cur = prev[id];
+        if (cur && sendingRef.current) return prev;
+        if (cur && (cur.thread?.length || 0) === (rev.thread?.length || 0) && cur.status === rev.status) return prev;
+        return { ...prev, [id]: rev };
+      });
+    } catch {}
+  }, []);
 
   useEffect(() => { loadList(); }, [loadList]);
 
+  // lists refresh every 8s while visible; the open chat polls just its own thread, faster
   useEffect(() => {
     if (screen === 'new') return;
-    const t = setInterval(() => { if (!document.hidden) loadList(); }, screen === 'chat' ? 4000 : 7000);
+    const t = setInterval(() => {
+      if (document.hidden) return;
+      if (screen === 'chat' && openId) loadFull(openId); else loadList();
+    }, screen === 'chat' ? 4000 : 8000);
     return () => clearInterval(t);
-  }, [screen, loadList]);
+  }, [screen, openId, loadList, loadFull]);
+
+  useEffect(() => { if (screen === 'chat' && openId) loadFull(openId); }, [screen, openId, loadFull]);
 
   // phone back button / swipe-back moves between screens
   useEffect(() => {
@@ -41,36 +61,35 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     const onPop = (e) => {
       const s = e.state?.anx || 'home';
       setScreen(s);
-      if (s === 'home') setOpenId(null);
+      if (s === 'home') { setOpenId(null); loadList(); }
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  // app icon badge = unread replies
-  useEffect(() => {
-    setAppBadge(revisions.reduce((n, r) => n + unreadFor(r, 'client'), 0));
-  }, [revisions, screen, openId]);
-
-  // notification tap -> open that conversation
-  const deepRef = useRef(false);
-  useEffect(() => {
-    if (deepRef.current || !loaded) return;
-    const rid = new URLSearchParams(window.location.search).get('rev');
-    if (!rid) { deepRef.current = true; return; }
-    if (revisions.some(r => idOf(r) === rid)) { deepRef.current = true; go('chat', rid); }
-  }, [loaded, revisions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadList]);
 
   const go = (s, id = null) => { history.pushState({ anx: s }, ''); setOpenId(id); setScreen(s); };
   const back = () => history.back();
 
-  const rev = openId ? revisions.find(r => idOf(r) === openId) : null;
+  // app icon badge = unread replies
+  const totalUnread = (rows || []).reduce((n, r) => n + rowUnread(r, 'client'), 0);
+  useEffect(() => { setAppBadge(totalUnread); }, [totalUnread, screen, openId]);
+
+  // notification tap -> open that conversation
+  const deepRef = useRef(false);
+  useEffect(() => {
+    if (deepRef.current || rows === null) return;
+    deepRef.current = true;
+    const rid = new URLSearchParams(window.location.search).get('rev');
+    if (rid && rows.some(r => r.id === rid)) go('chat', rid);
+  }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rev = openId ? fulls[openId] : null;
 
   async function send(msg, img) {
-    const revId = idOf(rev);
+    const revId = openId;
     const optimistic = { authorType: 'client', authorName: 'You', message: msg || 'Uploaded an image', imageUrl: img, timestamp: new Date().toISOString(), _optimistic: true };
     sendingRef.current = true;
-    setRevisions(prev => prev.map(r => idOf(r) === revId ? { ...r, thread: [...(r.thread || []), optimistic] } : r));
+    setFulls(p => ({ ...p, [revId]: { ...p[revId], thread: [...(p[revId].thread || []), optimistic] } }));
     try {
       const res = await fetch(`/api/revisions/${revId}`, {
         method: 'PUT',
@@ -79,10 +98,10 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
-      setRevisions(prev => prev.map(r => idOf(r) === revId ? updated : r));
+      setFulls(p => ({ ...p, [revId]: { ...p[revId], ...updated } }));
       return true;
     } catch {
-      setRevisions(prev => prev.map(r => idOf(r) === revId ? { ...r, thread: (r.thread || []).filter(m => !m._optimistic) } : r));
+      setFulls(p => ({ ...p, [revId]: { ...p[revId], thread: (p[revId].thread || []).filter(m => !m._optimistic) } }));
       alert('Message not sent. Please check your connection and try again.');
       return false;
     } finally { sendingRef.current = false; }
@@ -100,10 +119,12 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
       });
       if (!res.ok) throw new Error();
       const created = await res.json();
-      setRevisions(prev => [created, ...prev]);
+      const id = String(created._id || created.id);
+      setFulls(p => ({ ...p, [id]: created }));
       setNewTitle(''); setNewDesc('');
+      loadList();
       history.replaceState({ anx: 'chat' }, ''); // back from the chat returns to the list
-      setOpenId(idOf(created));
+      setOpenId(id);
       setScreen('chat');
     } catch {
       alert('Could not send your request. Please try again.');
@@ -111,12 +132,11 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
   }
 
   async function remove() {
-    if (!rev || !confirm('Delete this request from your view?')) return;
-    const revId = idOf(rev);
+    if (!openId || !confirm('Delete this request from your view?')) return;
     try {
-      const res = await fetch(`/api/revisions/${revId}`, { method: 'DELETE' });
+      const res = await fetch(`/api/revisions/${openId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
-      setRevisions(prev => prev.filter(r => idOf(r) !== revId));
+      setRows(prev => (prev || []).filter(r => r.id !== openId));
       back();
     } catch { alert('Failed to delete.'); }
   }
@@ -138,7 +158,17 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
     </div>
   );
 
-  if (screen === 'chat' && rev) {
+  if (screen === 'chat') {
+    const row = (rows || []).find(r => r.id === openId);
+    if (!rev) return (
+      <div className="wa-screen" style={{ background: bgBase }}>
+        <div className="wa-head">
+          <button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button>
+          <div className="wa-title">{row?.title || 'Loading…'}</div>
+        </div>
+        <div className="wa-body"><p className="wa-empty" style={{ marginTop: '3rem' }}>Opening conversation…</p></div>
+      </div>
+    );
     const closed = rev.status === 'closed' || rev.status === 'resolved';
     return (
       <ChatScreen
@@ -172,9 +202,11 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
         <NotifyButton accent={accent} />
         <div className="wa-note"><Lock size={14} /> Website preview opens on desktop only. Share your changes here instead.</div>
 
-        {!loaded && <p className="wa-empty" style={{ marginTop: '3rem' }}>Loading…</p>}
+        {rows === null && (
+          <div className="wa-skel">{[0, 1, 2].map(i => <div key={i} className="wa-skel-row"><i /><span><b /><b /></span></div>)}</div>
+        )}
 
-        {loaded && revisions.length === 0 && (
+        {rows && rows.length === 0 && (
           <div className="wa-blank">
             <div className="wa-blank-icon" style={{ background: accentLt, color: accent }}><MessageSquarePlus size={30} /></div>
             <h3>No requests yet</h3>
@@ -183,21 +215,18 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
           </div>
         )}
 
-        {revisions.map(r => {
-          const t = r.thread || [];
-          const last = t[t.length - 1];
-          const when = last ? timeOf(last) : new Date(r.createdAt);
-          const unread = unreadFor(r, 'client');
+        {(rows || []).map(r => {
+          const unread = rowUnread(r, 'client');
           return (
-            <div key={idOf(r)} className="wa-row" onClick={() => go('chat', idOf(r))}>
+            <div key={r.id} className="wa-row" onClick={() => go('chat', r.id)}>
               <div className="wa-avatar" style={{ background: accentLt, color: accent }}>{(r.title || '?')[0].toUpperCase()}</div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="wa-row-top">
                   <span className="wa-title" style={unread ? { fontWeight: 700 } : undefined}>{r.title}</span>
-                  <span className="wa-time" style={unread ? { color: accent } : undefined}>{listTime(when)}</span>
+                  <span className="wa-time" style={unread ? { color: accent } : undefined}>{listTime(new Date(r.lastAt))}</span>
                 </div>
                 <div className="wa-row-top">
-                  <span className="wa-preview">{last ? `${last.authorType === 'client' ? 'You: ' : ''}${last.message}` : (r.message || 'No messages')}</span>
+                  <span className="wa-preview">{r.lastType === 'client' ? 'You: ' : ''}{r.lastHasImage && !r.lastMessage ? '📷 Photo' : r.lastMessage}</span>
                   {unread > 0
                     ? <span className="wa-badge" style={{ background: accent }}>{unread}</span>
                     : <span className="wa-status" style={{ color: statusColor(r.status, accent) }}>{r.status}</span>}
@@ -208,7 +237,7 @@ export default function ClientMobileApp({ project, clientOrg, brand, accent, acc
         })}
       </div>
 
-      {revisions.length > 0 && (
+      {rows && rows.length > 0 && (
         <button className="wa-fab wa-fab-ext" style={{ background: accent }} onClick={() => go('new')}>
           <Plus size={22} /> New request
         </button>

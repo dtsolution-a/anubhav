@@ -36,6 +36,12 @@ export function unreadFor(rev, myType) {
   return t.slice(getSeen(idOf(rev))).filter(m => m.authorType !== myType).length;
 }
 
+// Same idea as unreadFor, but from an /api/activity row (no full thread needed)
+export function rowUnread(row, myType) {
+  if (!row.lastType || row.lastType === myType || isStale(row.id, row.lastAt)) return 0;
+  return Math.max(0, row.count - getSeen(row.id));
+}
+
 // Phone photos are huge; shrink before sending as base64
 export function fileToDataUrl(file) {
   return new Promise((resolve) => {

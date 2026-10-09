@@ -5,6 +5,7 @@ import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 import mongoose from 'mongoose';
 import { notifyRevision } from '@/lib/push';
+import { persistImage } from '@/lib/cloudinary';
 
 // GET single revision
 export async function GET(_, { params }) {
@@ -44,12 +45,14 @@ export async function PUT(request, { params }) {
   // Add thread message
   if (body._addMessage) {
     const { message, imageUrl } = body._addMessage;
+    const image = await persistImage(imageUrl);
     revision.thread.push({
       authorOrgId: org._id,
       authorType: session.type,
       authorName: org.name,
       message,
-      imageUrl: imageUrl || null,
+      imageUrl: image.url,
+      imagePublicId: image.publicId,
     });
     // Auto-move to in-progress when agency/owner replies
     if (session.type !== 'client' && revision.status === 'open') {

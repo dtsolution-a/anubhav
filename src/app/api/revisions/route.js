@@ -5,6 +5,7 @@ import Project from '@/models/Project';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 import { notifyRevision } from '@/lib/push';
+import { persistImage } from '@/lib/cloudinary';
 
 // GET revisions — filtered by project or all (owner sees all)
 export async function GET(request) {
@@ -66,6 +67,7 @@ export async function POST(request) {
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
   const org = await Organization.findById(session.orgId).lean();
+  const image = await persistImage(imageUrl);
 
   // Determine responsible agency (fallback to owner if none)
   const responsibleAgencyId = project.agencyId || project.ownerId;
@@ -82,7 +84,8 @@ export async function POST(request) {
       authorType: session.type,
       authorName: org.name,
       message,
-      imageUrl: imageUrl || null,
+      imageUrl: image.url,
+      imagePublicId: image.publicId,
     }],
   });
 

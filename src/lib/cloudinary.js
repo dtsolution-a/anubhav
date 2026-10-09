@@ -23,6 +23,21 @@ export async function uploadToCloudinary(source, folder = 'anubhavah') {
 }
 
 /**
+ * Chat images arrive as base64 data URLs. Storing them in MongoDB made every revision
+ * response megabytes big, so move them to Cloudinary and keep only the URL.
+ * Falls back to the original value if the upload fails so an image is never lost.
+ */
+export async function persistImage(imageUrl, folder = 'anubhavah/revisions') {
+  if (!imageUrl || !String(imageUrl).startsWith('data:image/')) return { url: imageUrl || null, publicId: null };
+  try {
+    return await uploadToCloudinary(imageUrl, folder);
+  } catch (err) {
+    console.error('[cloudinary] upload failed, keeping inline image', err?.message);
+    return { url: imageUrl, publicId: null };
+  }
+}
+
+/**
  * Delete an asset from Cloudinary
  */
 export async function deleteFromCloudinary(publicId) {

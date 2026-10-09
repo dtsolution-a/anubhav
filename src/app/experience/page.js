@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
 import { useDesktop, useIsMobile } from '@/lib/useDesktop';
 import PreviewLock from '@/components/PreviewLock';
-import ClientMobileApp from '@/components/ClientMobileApp';
+import dynamic from 'next/dynamic';
+const ClientMobileApp = dynamic(() => import('@/components/ClientMobileApp'), { ssr: false });
 
 const DEVICES = [
   { id: 'desktop', label: 'Desktop',     icon: '🖥', frameClass: 'frame-desktop' },
@@ -48,8 +49,8 @@ export default function ExperiencePage() {
       .then(d => { 
         if (d) {
           setData(d); 
-          // Fetch revisions for this project
-          if (d.project?._id) {
+          // Fetch revisions for this project (phones use the lighter activity feed instead)
+          if (d.project?._id && window.innerWidth > 640) {
             fetch(`/api/revisions?projectId=${d.project._id}`)
               .then(res => res.json())
               .then(revs => setRevisions(revs))

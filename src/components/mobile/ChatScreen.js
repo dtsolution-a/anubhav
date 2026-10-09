@@ -71,7 +71,7 @@ export default function ChatScreen({ rev, myType, accent, accentLt, bgBase, onBa
               <div className={`wa-msg ${mine ? 'mine' : 'theirs'}`} style={{ marginTop: sameAuthor ? 3 : 10 }}>
                 <div className={`wa-bubble ${mine ? 'mine' : 'theirs'}`} style={mine ? { background: accent } : undefined}>
                   {!mine && !sameAuthor && <div className="wa-author" style={{ color: accent }}>{name}</div>}
-                  {m.imageUrl && <img src={m.imageUrl} alt="attachment" onClick={() => setViewer(m.imageUrl)} />}
+                  {m.imageUrl && <img src={m.imageUrl} alt="attachment" loading="lazy" decoding="async" onClick={() => setViewer(m.imageUrl)} />}
                   {m.message && !(m.imageUrl && m.message === 'Uploaded an image') && <span className="wa-text">{m.message}</span>}
                   <span className="wa-meta">{valid && hhmm(d)}{mine && <Check size={13} style={{ opacity: m._optimistic ? 0.35 : 0.8 }} />}</span>
                 </div>
