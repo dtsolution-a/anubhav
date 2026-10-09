@@ -1133,3 +1133,23 @@ body {
 .wa-note-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.74rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .wa-note-top button { color: #ef4444; padding: 0.3rem; }
 .wa-note-card pre { font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary); }
+
+/* ── INSTALLED APP (PWA) ─────────────────────────────────────────── */
+html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transparent; }
+@media (display-mode: standalone) {
+  body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea { -webkit-user-select: text; user-select: text; }
+}
+
+.install-card {
+  position: relative; width: 100%; padding: 0.9rem 1rem;
+  background: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: var(--radius-lg);
+}
+.install-row { display: flex; align-items: center; gap: 0.75rem; }
+.install-icon { width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--accent); background: var(--accent-light); }
+.install-title { font-weight: 600; font-size: 0.9rem; }
+.install-sub { font-size: 0.74rem; color: var(--text-muted); line-height: 1.35; }
+.install-btn { padding: 0.5rem 1rem; font-size: 0.82rem; flex-shrink: 0; }
+.install-x { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.install-steps { margin: 0.8rem 0 0 1.2rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.35rem; }
+.install-steps b { color: var(--text-primary); }

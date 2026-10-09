@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './landing.module.css';
+import InstallApp from '@/components/InstallApp';
 
 export default function LandingPage() {
   const [code, setCode]       = useState('');
@@ -24,6 +25,18 @@ export default function LandingPage() {
       }
     } else {
       inputRef.current?.focus();
+      // Installed app: reopen straight into the saved session
+      const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (standalone) {
+        fetch('/api/auth/me')
+          .then(r => (r.ok ? r.json() : null))
+          .then(d => {
+            const type = d?.session?.type;
+            const dest = { owner: '/admin', agency: '/workspace', client: '/experience' }[type];
+            if (dest) router.replace(dest);
+          })
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -130,6 +143,8 @@ export default function LandingPage() {
             </div>
           )}
         </div>
+
+        <InstallApp />
 
         <p className={styles.footer}>
           Powered by <span style={{ fontFamily: 'var(--font-deva)', fontSize: '1rem' }}>अनुभवः</span> &nbsp;·&nbsp; Secured access only

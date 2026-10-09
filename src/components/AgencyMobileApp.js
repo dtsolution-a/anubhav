@@ -38,6 +38,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   const accentLt = /^#[0-9a-f]{6}$/i.test(accent) ? `${accent}22` : 'rgba(255,112,53,0.12)';
   const bgBase = '#0a0807';
   const myType = session?.type || 'agency';
+  const orgName = session?.org?.name || session?.name || 'Workspace';
 
   const loadAll = useCallback(async () => {
     try {
@@ -49,7 +50,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   }, []);
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => (r.ok ? r.json() : null)).then(s => s && setSession(s)).catch(() => {});
+    fetch('/api/auth/me').then(r => (r.ok ? r.json() : null)).then(s => s && setSession(s.session || s)).catch(() => {});
     loadAll();
   }, [loadAll]);
 
@@ -106,7 +107,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   // ── actions ──
   async function send(msg, img) {
     const rid = idOf(rev);
-    const optimistic = { authorType: myType, authorName: session?.org?.name || 'You', message: msg || 'Uploaded an image', imageUrl: img, timestamp: new Date().toISOString(), _optimistic: true };
+    const optimistic = { authorType: myType, authorName: orgName, message: msg || 'Uploaded an image', imageUrl: img, timestamp: new Date().toISOString(), _optimistic: true };
     sendingRef.current = true;
     setRevisions(prev => prev.map(r => idOf(r) === rid ? { ...r, thread: [...(r.thread || []), optimistic] } : r));
     try {
@@ -389,10 +390,10 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
     <div className="wa-screen wa-home" style={{ background: bgBase }}>
       <div className="wa-head wa-home-head">
         <div className="wa-avatar" style={{ background: `linear-gradient(135deg, ${accent}, ${branding.accentSecondary || accent})`, color: '#fff', fontSize: '0.8rem' }}>
-          {branding.logoText || initials(session?.org?.name || 'W')}
+          {branding.logoText || initials(orgName)}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="wa-title">{session?.org?.name || 'Workspace'}</div>
+          <div className="wa-title">{orgName}</div>
           <div className="wa-sub" style={{ textTransform: 'none' }}>Agency Portal</div>
         </div>
         <button className="btn-icon" onClick={logout} aria-label="Logout"><LogOut size={20} /></button>
