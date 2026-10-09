@@ -1,9 +1,10 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
+import { LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
 import { useDesktop, useIsMobile } from '@/lib/useDesktop';
 import PreviewLock from '@/components/PreviewLock';
+import ClientMobileApp from '@/components/ClientMobileApp';
 
 const DEVICES = [
   { id: 'desktop', label: 'Desktop',     icon: '🖥', frameClass: 'frame-desktop' },
@@ -35,7 +36,6 @@ export default function ExperiencePage() {
   const router = useRouter();
   const isDesktop = useDesktop();
   const isMobileView = useIsMobile();
-  const [mobileNew, setMobileNew] = useState(false);
   const canPreview = isDesktop === true;
   const fsRef  = useRef(null);
 
@@ -118,7 +118,6 @@ export default function ExperiencePage() {
       setRevTitle('');
       setRevDesc('');
       setExpandedRevId(newRev._id || newRev.id);
-      setMobileNew(false);
     } catch (err) {
       alert('Failed to raise revision');
     }
@@ -196,8 +195,22 @@ export default function ExperiencePage() {
   const bgBase    = B.bgBase          || '#0a0807';
   const currentDevice = DEVICES.find(d => d.id === device) || DEVICES[0];
 
+  // Phones get a dedicated chat-style app instead of the desktop layout
+  if (isMobileView) {
+    return (
+      <ClientMobileApp
+        project={project}
+        clientOrg={clientOrg}
+        brand={B}
+        accent={accent}
+        accentLt={accentLt}
+        bgBase={bgBase}
+        onLogout={logout}
+      />
+    );
+  }
+
   const isMobile = !!isMobileView;
-  const mobileRev = expandedRevId ? revisions.find(r => (r._id || r.id) === expandedRevId) : null;
   const renderMessages = (rev, revId) => (
     <div style={{ display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'1.5rem' }}>
                             {(rev.thread || []).map((msg, i) => {
@@ -406,78 +419,7 @@ export default function ExperiencePage() {
       </div>
 
       {/* ── Revisions Modal ── */}
-      {showRevModal && isMobile && (
-        <div className="wa-screen" style={{ background: bgBase }}>
-          {mobileRev ? (
-            <>
-              <div className="wa-head">
-                <button className="btn-icon" onClick={() => setExpandedRevId(null)} aria-label="Back"><ArrowLeft size={22} /></button>
-                <div className="wa-avatar" style={{ background: accentLt, color: accent }}>{(mobileRev.title || '?')[0].toUpperCase()}</div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div className="wa-title">{mobileRev.title}</div>
-                  <div className="wa-sub">{mobileRev.status} · {new Date(mobileRev.createdAt).toLocaleDateString()}</div>
-                </div>
-                <button className="btn-icon" style={{ color:'#ef4444' }} onClick={() => handleDeleteRevision(mobileRev._id || mobileRev.id)} aria-label="Delete"><Trash2 size={18} /></button>
-              </div>
-              <div className="wa-body wa-chat-bg">
-                {(mobileRev.thread || []).length === 0 && <p className="wa-empty">No messages yet.</p>}
-                {renderMessages(mobileRev, mobileRev._id || mobileRev.id)}
-              </div>
-              <div className="wa-footer">
-                {mobileRev.status === 'closed' || mobileRev.status === 'resolved'
-                  ? <p className="wa-empty" style={{ padding:'0.5rem' }}>This revision is {mobileRev.status}.</p>
-                  : renderReplyBar(mobileRev, mobileRev._id || mobileRev.id)}
-              </div>
-            </>
-          ) : mobileNew ? (
-            <>
-              <div className="wa-head">
-                <button className="btn-icon" onClick={() => setMobileNew(false)} aria-label="Back"><ArrowLeft size={22} /></button>
-                <div className="wa-title" style={{ flex:1 }}>New Revision</div>
-              </div>
-              <form className="wa-body" onSubmit={handleRaiseRevision} style={{ display:'flex', flexDirection:'column', gap:'0.75rem', padding:'1rem' }}>
-                <input type="text" className="input" placeholder="Title (e.g. Change logo color)" value={revTitle} onChange={e => setRevTitle(e.target.value)} required />
-                <textarea className="textarea" placeholder="Describe the changes needed..." value={revDesc} onChange={e => setRevDesc(e.target.value)} required style={{ minHeight:140 }} />
-                <button type="submit" className="btn-primary" style={{ width:'100%', justifyContent:'center', background: accent, color:'#000' }}>Submit Revision</button>
-              </form>
-            </>
-          ) : (
-            <>
-              <div className="wa-head">
-                <button className="btn-icon" onClick={() => setShowRevModal(false)} aria-label="Close"><ArrowLeft size={22} /></button>
-                <div className="wa-title" style={{ flex:1 }}>Revisions</div>
-              </div>
-              <div className="wa-body">
-                {revisions.length === 0 && <p className="wa-empty" style={{ marginTop:'3rem' }}>No revisions yet. Tap + to raise one.</p>}
-                {revisions.map(rev => {
-                  const revId = rev._id || rev.id;
-                  const last = (rev.thread || [])[(rev.thread || []).length - 1];
-                  const when = new Date(last?.timestamp || last?.createdAt || rev.createdAt);
-                  const isToday = when.toDateString() === new Date().toDateString();
-                  return (
-                    <div key={revId} className="wa-row" onClick={() => setExpandedRevId(revId)}>
-                      <div className="wa-avatar" style={{ background: accentLt, color: accent }}>{(rev.title || '?')[0].toUpperCase()}</div>
-                      <div style={{ flex:1, minWidth:0 }}>
-                        <div className="wa-row-top">
-                          <span className="wa-title">{rev.title}</span>
-                          <span className="wa-time">{isToday ? when.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' }) : when.toLocaleDateString([], { day:'numeric', month:'short' })}</span>
-                        </div>
-                        <div className="wa-row-top">
-                          <span className="wa-preview">{last ? `${last.authorType === 'client' ? 'You: ' : ''}${last.message}` : (rev.message || 'No messages')}</span>
-                          <span className="wa-status" style={{ color: rev.status === 'resolved' ? '#a8ff78' : accent }}>{rev.status}</span>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button className="wa-fab" style={{ background: accent }} onClick={() => setMobileNew(true)} aria-label="New revision"><Plus size={26} /></button>
-            </>
-          )}
-        </div>
-      )}
-      {/* ── Revisions Modal ── */}
-      {showRevModal && !isMobile && (
+      {showRevModal && (
         <div className="rev-overlay" style={{ position:'fixed', inset:0, zIndex:200, display:'flex', justifyContent:'flex-end', background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
           <div className="rev-panel" style={{ width:'100%', maxWidth:'500px', height:'100%', background: bgBase, borderLeft:`1px solid ${accentLt}`, display:'flex', flexDirection:'column', boxShadow:'-10px 0 40px rgba(0,0,0,0.3)', animation:'slideInRight 0.3s ease' }}>
             <div className="rev-panel-head" style={{ padding:'1.5rem', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
