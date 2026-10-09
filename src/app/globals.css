@@ -1220,3 +1220,7 @@ html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transpare
 
 /* switching bottom tabs should feel instant, not slide in */
 .wa-screen:has(.wa-tabbar) { animation: none; }
+
+/* phone-style lists: no visible scrollbar */
+.wa-body { scrollbar-width: none; }
+.wa-body::-webkit-scrollbar { display: none; }

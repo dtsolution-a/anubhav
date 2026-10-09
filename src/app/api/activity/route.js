@@ -40,7 +40,7 @@ export async function GET() {
 
   await Project.populate(rows, { path: 'projectId', select: 'title', model: Project });
 
-  return NextResponse.json(rows.map(r => ({
+  const items = rows.map(r => ({
     id: String(r._id),
     projectId: String(r.projectId?._id || r.projectId),
     projectTitle: r.projectId?.title || '',
@@ -53,5 +53,9 @@ export async function GET() {
     lastName: r.lastName || '',
     lastAt: r.lastAt || r.updatedAt || r.createdAt,
     lastHasImage: !!r.lastHasImage,
-  })));
+  }));
+
+  // newest conversation first, by the time of its latest message
+  items.sort((a, b) => new Date(b.lastAt) - new Date(a.lastAt));
+  return NextResponse.json(items);
 }
