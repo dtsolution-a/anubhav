@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useIsMobile } from '@/lib/useDesktop';
 import AgencyMobileApp from '@/components/AgencyMobileApp';
+import NotifyButton from '@/components/NotifyButton';
 import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, CheckCircle, Zap } from 'lucide-react';
 
 export default function WorkspaceDashboard() {
@@ -147,6 +148,7 @@ export default function WorkspaceDashboard() {
             </h1>
             <p className="page-sub" style={{ marginTop:'0.4rem' }}>Here's an overview of your active projects and revisions.</p>
           </div>
+          <NotifyButton variant="button" />
         </header>
 
         {/* Stats */}

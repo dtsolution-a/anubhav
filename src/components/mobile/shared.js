@@ -39,6 +39,8 @@ export function unreadFor(rev, myType) {
 // Same idea as unreadFor, but from an /api/activity row (no full thread needed)
 export function rowUnread(row, myType) {
   if (!row.lastType || row.lastType === myType || isStale(row.id, row.lastAt)) return 0;
+  // never opened on this device: show one "new" marker instead of counting the whole history
+  if (!hasSeen(row.id)) return 1;
   return Math.max(0, row.count - getSeen(row.id));
 }
 

@@ -1,10 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { getSeen, isStale, setAppBadge } from './mobile/shared';
+import { rowUnread, setAppBadge } from './mobile/shared';
 
 // Unread = messages from clients/agencies the owner has not opened yet (tracked per device)
-export const ownerUnread = (row) =>
-  row.lastType && row.lastType !== 'owner' && !isStale(row.id, row.lastAt) ? Math.max(0, row.count - getSeen(row.id)) : 0;
+export const ownerUnread = (row) => rowUnread(row, 'owner');
 
 // Polls the lightweight activity feed. Pauses while the tab is hidden.
 export function useActivity(intervalMs = 10000) {
