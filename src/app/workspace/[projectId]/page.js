@@ -2,9 +2,13 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import { useDesktop } from '@/lib/useDesktop';
+import PreviewLock from '@/components/PreviewLock';
 import { LayoutDashboard, FolderKanban, MessageSquare, LogOut, Monitor, Paperclip, Lock, Link as LinkIcon } from 'lucide-react';
 
 export default function ProjectDetail({ params }) {
+  const isDesktop = useDesktop();
+  const canPreview = isDesktop === true;
   const { projectId } = params;
 
   const [session, setSession]       = useState(null);
@@ -423,7 +427,8 @@ export default function ProjectDetail({ params }) {
         </div>
 
         {/* ── Preview Tab ── */}
-        {activeTab === 'preview' && (
+        {activeTab === 'preview' && isDesktop === false && <PreviewLock />}
+        {activeTab === 'preview' && canPreview && (
           <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }} className="animate-in">
             <div className="device-bar">
               <div className="device-opts">
@@ -493,7 +498,7 @@ export default function ProjectDetail({ params }) {
 
         {/* ── Revisions Tab ── */}
         {activeTab === 'revisions' && (
-          <div className="animate-in" style={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
+          <div className="animate-in" style={{ height: 'calc(100dvh - 180px)', minHeight: 460, display: 'flex', flexDirection: 'column' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'2rem', flexShrink: 0 }}>
               <div>
                 <h2 className="section-title" style={{ marginBottom:'0.25rem' }}>Revisions & Feedback</h2>
@@ -514,9 +519,9 @@ export default function ProjectDetail({ params }) {
                 <p className="empty-state-sub">No revisions have been raised for this project.</p>
               </div>
             ) : (
-              <div style={{ display:'flex', gap:'1.5rem', flex: 1, minHeight:'500px' }}>
+              <div className="split-pane" style={{ display:'flex', gap:'1.5rem', flex: 1, minHeight:'500px' }}>
                 {/* Left pane: Revision list (30%) */}
-                <div className="custom-scrollbar" style={{ flex:'0 0 32%', display:'flex', flexDirection:'column', gap:'0.75rem', overflowY:'auto', paddingRight:'0.5rem' }}>
+                <div className="custom-scrollbar split-list" style={{ flex:'0 0 32%', display:'flex', flexDirection:'column', gap:'0.75rem', overflowY:'auto', paddingRight:'0.5rem' }}>
                   {revisions.map(rev => {
                     const revId = rev._id || rev.id;
                     const isExpanded = expandedRevisionId === revId;
@@ -806,7 +811,7 @@ export default function ProjectDetail({ params }) {
       )}
 
       {/* ── Fullscreen Preview Modal ── */}
-      {isFullscreen && (
+      {isFullscreen && canPreview && (
         <div style={{ position:'fixed', inset:0, backgroundColor:'#000', zIndex:1000, display:'flex', flexDirection:'column' }}>
           <div style={{ padding:'0.75rem 1.5rem', display:'flex', justifyContent:'space-between', alignItems:'center', background:'var(--bg-surface)', borderBottom:'1px solid var(--bg-border)' }}>
             <span style={{ fontSize:'0.88rem', color:'var(--text-secondary)' }}>{project.title} — Full Preview</span>

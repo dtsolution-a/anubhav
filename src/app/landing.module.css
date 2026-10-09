@@ -141,3 +141,14 @@
   0%,100% { opacity:0.45; }
   50%      { opacity:0.85; }
 }
+
+@media (max-width: 640px) {
+  .page { min-height: 100dvh; align-items: flex-start; padding-top: 12vh; }
+  .content { padding: 1.25rem; gap: 1.75rem; }
+  .card { padding: 1.25rem; }
+  .inputRow { flex-direction: column; }
+  .codeInput { font-size: 1.1rem; text-align: center; }
+  .submitBtn { width: 100%; justify-content: center; min-height: 46px; }
+  .orb1 { width: 280px; height: 280px; }
+  .orb2 { width: 220px; height: 220px; }
+}

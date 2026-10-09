@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { LogOut, Monitor, FileText, ChevronDown, ChevronUp, Trash2, Send, Paperclip } from 'lucide-react';
+import { useDesktop } from '@/lib/useDesktop';
+import PreviewLock from '@/components/PreviewLock';
 
 const DEVICES = [
   { id: 'desktop', label: 'Desktop',     icon: '🖥', frameClass: 'frame-desktop' },
@@ -31,6 +33,8 @@ export default function ExperiencePage() {
   const chatEndRefs = useRef({});
 
   const router = useRouter();
+  const isDesktop = useDesktop();
+  const canPreview = isDesktop === true;
   const fsRef  = useRef(null);
 
   useEffect(() => {
@@ -185,24 +189,24 @@ export default function ExperiencePage() {
   const currentDevice = DEVICES.find(d => d.id === device) || DEVICES[0];
 
   return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', background: bgBase, '--accent': accent, '--accent-secondary': accentSec, '--accent-glow': accentGlow, '--accent-light': accentLt, '--accent-gradient': `linear-gradient(135deg,${accent},${accentSec})` }}>
+    <div style={{ minHeight:'100dvh', display:'flex', flexDirection:'column', background: bgBase, '--accent': accent, '--accent-secondary': accentSec, '--accent-glow': accentGlow, '--accent-light': accentLt, '--accent-gradient': `linear-gradient(135deg,${accent},${accentSec})` }}>
       <div className="bg-grid" />
 
       {/* ── Header ── */}
-      <header style={{ position:'sticky', top:0, zIndex:100, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'0.85rem 2rem', background:`${bgBase}cc`, backdropFilter:'blur(20px)', borderBottom:'1px solid var(--bg-border)' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.65rem' }}>
-          <div style={{ width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${accent},${accentSec})`, color:'#fff', fontFamily:'Outfit,sans-serif', fontSize:'0.75rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <header className="exp-header" style={{ background:`${bgBase}cc` }}>
+        <div className="exp-brand">
+          <div style={{ flexShrink:0, width:32, height:32, borderRadius:8, background:`linear-gradient(135deg,${accent},${accentSec})`, color:'#fff', fontFamily:'Outfit,sans-serif', fontSize:'0.75rem', fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center' }}>
             {B.logoText || '◆'}
           </div>
-          <span style={{ fontFamily:'Outfit,sans-serif', fontWeight:600, fontSize:'0.9rem', color:'#f4f0ec' }}>{B.name || brand?.name}</span>
+          <span className="exp-brand-name">{B.name || brand?.name}</span>
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', fontSize:'0.72rem', fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color: accent, background: accentLt, border:`1px solid ${accent}55`, borderRadius:100, padding:'0.28rem 0.85rem' }}>
+        <div className="exp-pill" style={{ display:'flex', alignItems:'center', gap:'0.5rem', fontSize:'0.72rem', fontWeight:600, letterSpacing:'0.1em', textTransform:'uppercase', color: accent, background: accentLt, border:`1px solid ${accent}55`, borderRadius:100, padding:'0.28rem 0.85rem' }}>
           <span className="badge-dot" style={{ background: accent }} />
           Experience Centre
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', gap:'0.75rem' }}>
+        <div className="exp-actions">
           <button 
             className="btn-ghost" 
             style={{ fontSize:'0.76rem', padding:'0.4rem 1rem', display:'flex', alignItems:'center', gap:'0.4rem', border:`1px solid ${accentLt}`, color: accent }} 
@@ -211,14 +215,14 @@ export default function ExperiencePage() {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
             Revisions
           </button>
-          <span style={{ fontSize:'1rem', fontFamily:'Noto Sans Devanagari, serif', color:'var(--text-muted)', lineHeight:1.4 }}>अनुभवः</span>
+          <span className="exp-deva" style={{ fontSize:'1rem', fontFamily:'Noto Sans Devanagari, serif', color:'var(--text-muted)', lineHeight:1.4 }}>अनुभवः</span>
           <button className="btn-ghost" style={{ fontSize:'0.76rem', padding:'0.28rem 0.7rem' }} onClick={logout}>Exit</button>
         </div>
       </header>
 
       {/* ── Hero ── */}
-      <div style={{ padding:'2.5rem 2rem 1.5rem', textAlign:'center', position:'relative', overflow:'hidden' }}>
-        <div className="glow-orb" style={{ width:500, height:250, background: accentGlow, top:-60, left:'50%', transform:'translateX(-50%)' }} />
+      <div className="exp-hero">
+        <div className="glow-orb" style={{ maxWidth:'100%', width:500, height:250, background: accentGlow, top:-60, left:'50%', transform:'translateX(-50%)' }} />
         <div style={{ position:'relative', zIndex:1 }}>
           <p style={{ fontSize:'0.75rem', letterSpacing:'0.26em', textTransform:'uppercase', color:'var(--text-muted)', marginBottom:'0.7rem' }}>Welcome,</p>
           <h1 style={{ fontFamily:'Outfit,sans-serif', fontSize:'clamp(1.6rem,3vw,2.4rem)', fontWeight:800, letterSpacing:'-0.02em', color:'#f4f0ec', marginBottom:'0.6rem' }}>
@@ -235,7 +239,7 @@ export default function ExperiencePage() {
       </div>
 
       {/* ── Device selector ── */}
-      <div className="device-bar" style={{ background:'var(--bg-surface)', position:'relative', zIndex:10 }}>
+      {canPreview && <div className="device-bar" style={{ background:'var(--bg-surface)', position:'relative', zIndex:10 }}>
         <div className="device-opts">
           {DEVICES.map(d => (
             <button
@@ -253,11 +257,11 @@ export default function ExperiencePage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
           Full Screen
         </button>
-      </div>
+      </div>}
 
       {/* ── Preview ── */}
-      <div style={{ flex:1, padding:'1.5rem 2rem 2rem', maxWidth:1280, margin:'0 auto', width:'100%' }}>
-        <div className="preview-wrap">
+      <div className="exp-preview-section" style={{ position:'relative', zIndex:1 }}>
+        {isDesktop === null ? null : !canPreview ? <PreviewLock /> : <div className="preview-wrap">
           <div className="preview-toolbar">
             <div className="toolbar-dots"><div className="dot dot-r"/><div className="dot dot-y"/><div className="dot dot-g"/></div>
             <div className="toolbar-url" style={{ color: project.status === 'delivered' ? 'var(--text-muted)' : 'rgba(255,180,50,0.65)', background: project.status === 'delivered' ? 'var(--bg-base)' : 'rgba(255,180,50,0.04)' }}>
@@ -292,11 +296,11 @@ export default function ExperiencePage() {
               />
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* ── Footer ── */}
-      <footer style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.6rem', padding:'1rem', borderTop:'1px solid var(--bg-border)', fontSize:'0.76rem', color:'var(--text-muted)', background: bgBase }}>
+      <footer className="exp-footer" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:'0.6rem', padding:'1rem', borderTop:'1px solid var(--bg-border)', fontSize:'0.76rem', color:'var(--text-muted)', background: bgBase }}>
         <span>Powered by</span>
         <span style={{ fontFamily:'Noto Sans Devanagari, serif', fontSize:'0.88rem', color:'var(--text-secondary)' }}>अनुभवः</span>
         <span>·</span>
@@ -311,23 +315,23 @@ export default function ExperiencePage() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        {project.previewUrl && fsOpen && (
+        {canPreview && project.previewUrl && fsOpen && (
           <iframe src={project.previewUrl} title="Full Preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" style={{ flex:1, border:'none', width:'100%' }} />
         )}
       </div>
 
       {/* ── Revisions Modal ── */}
       {showRevModal && (
-        <div style={{ position:'fixed', inset:0, zIndex:200, display:'flex', justifyContent:'flex-end', background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
-          <div style={{ width:'100%', maxWidth:'500px', height:'100%', background: bgBase, borderLeft:`1px solid ${accentLt}`, display:'flex', flexDirection:'column', boxShadow:'-10px 0 40px rgba(0,0,0,0.3)', animation:'slideInRight 0.3s ease' }}>
-            <div style={{ padding:'1.5rem', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div className="rev-overlay" style={{ position:'fixed', inset:0, zIndex:200, display:'flex', justifyContent:'flex-end', background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)' }}>
+          <div className="rev-panel" style={{ width:'100%', maxWidth:'500px', height:'100%', background: bgBase, borderLeft:`1px solid ${accentLt}`, display:'flex', flexDirection:'column', boxShadow:'-10px 0 40px rgba(0,0,0,0.3)', animation:'slideInRight 0.3s ease' }}>
+            <div className="rev-panel-head" style={{ padding:'1.5rem', borderBottom:'1px solid var(--bg-border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <h2 style={{ fontFamily:'Outfit,sans-serif', fontSize:'1.2rem', fontWeight:600, color:'#fff', margin:0 }}>Revisions & Feedback</h2>
               <button className="btn-icon" onClick={() => setShowRevModal(false)}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
             
-            <div style={{ flex:1, overflowY:'auto', padding:'1.5rem' }}>
+            <div className="rev-panel-body" style={{ flex:1, overflowY:'auto', padding:'1.5rem' }}>
               <form onSubmit={handleRaiseRevision} style={{ background:'rgba(255,255,255,0.02)', padding:'1.25rem', borderRadius:'12px', border:`1px solid ${accentLt}`, marginBottom:'2rem' }}>
                 <h3 style={{ fontSize:'0.9rem', color:'#fff', marginBottom:'1rem', marginTop:0 }}>Raise New Revision</h3>
                 <input type="text" className="input" placeholder="Title (e.g. Change logo color)" value={revTitle} onChange={e => setRevTitle(e.target.value)} required style={{ marginBottom:'0.75rem', background:'rgba(0,0,0,0.3)' }} />
@@ -365,13 +369,13 @@ export default function ExperiencePage() {
                       </div>
 
                       {isExpanded && (
-                        <div style={{ padding:'1.25rem', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="rev-thread" style={{ padding:'1.25rem', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:'1rem', marginBottom:'1.5rem' }}>
                             {(rev.thread || []).map((msg, i) => {
                               const isMe = msg.authorType === 'client';
                               const roleStr = msg.authorType === 'owner' ? 'Saarthi - DT Solution' : msg.authorName;
                               return (
-                                <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'85%' }}>
+                                <div key={i} style={{ alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'88%', minWidth:0, wordBreak:'break-word' }}>
                                   <div style={{ fontSize:'0.7rem', color:'var(--text-muted)', marginBottom:'0.25rem', display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', gap:'0.4rem' }}>
                                     <strong style={{ color: isMe ? accent : '#fff' }}>{roleStr}</strong>
                                     <span>{new Date(msg.timestamp || msg.createdAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
@@ -393,7 +397,7 @@ export default function ExperiencePage() {
                                       src={msg.imageUrl} 
                                       alt="attachment" 
                                       onClick={() => setPreviewImage(msg.imageUrl)}
-                                      style={{ cursor: 'pointer', maxWidth:'280px', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} 
+                                      style={{ cursor: 'pointer', maxWidth:'min(280px, 100%)', marginTop:'0.5rem', borderRadius:'10px', border:'1px solid var(--bg-border)', alignSelf: isMe ? 'flex-end' : 'flex-start', display:'block' }} 
                                     />
                                   )}
                                 </div>
@@ -458,7 +462,7 @@ export default function ExperiencePage() {
       {previewImage && (
         <div 
           onClick={() => setPreviewImage(null)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out', backdropFilter: 'blur(4px)' }}
         >
           <img src={previewImage} alt="preview" style={{ maxHeight: '90vh', maxWidth: '90vw', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 40px rgba(0,0,0,0.5)' }} />
         </div>

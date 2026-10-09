@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-const MOBILE_UA = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
-
 // Routes that require authentication and which role
 const PROTECTED = [
   { path: '/admin',     role: 'owner' },
@@ -12,21 +10,14 @@ const PROTECTED = [
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
-  const ua = request.headers.get('user-agent') || '';
 
   // Skip static assets, api, and _next internals
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
-    pathname === '/favicon.ico' ||
-    pathname === '/mobile-blocked'
+    pathname === '/favicon.ico'
   ) {
     return NextResponse.next();
-  }
-
-  // ── MOBILE BLOCK ─────────────────────────────────────────────
-  if (MOBILE_UA.test(ua)) {
-    return NextResponse.redirect(new URL('/mobile-blocked', request.url));
   }
 
   // ── AUTH GUARD ────────────────────────────────────────────────

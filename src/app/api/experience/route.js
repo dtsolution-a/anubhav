@@ -6,7 +6,7 @@ import Project from '@/models/Project';
 import Organization from '@/models/Organization';
 import { getSession } from '@/lib/auth';
 
-export async function GET() {
+export async function GET(request) {
   const session = await getSession('client');
   if (!session || session.type !== 'client') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -32,12 +32,17 @@ export async function GET() {
   const brand = project.agencyId?.branding || project.ownerId?.branding;
   const brandName = project.agencyId?.name || project.ownerId?.name;
 
+  // Previews are desktop-only: don't hand the URL to phones/tablets
+  const ua = request.headers.get('user-agent') || '';
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+
   return NextResponse.json({
     project: {
       _id: project._id,
       id: project._id,
       title: project.title,
-      previewUrl: project.previewUrl,
+      previewUrl: isMobile ? null : project.previewUrl,
+      previewLocked: isMobile,
       status: project.status,
     },
     clientOrg: { name: clientOrg.name },
