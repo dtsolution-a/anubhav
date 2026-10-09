@@ -7,6 +7,7 @@ import {
 import ChatScreen from './mobile/ChatScreen';
 import PreviewLock from './PreviewLock';
 import NotifyButton from './NotifyButton';
+import { useDesktop } from '@/lib/useDesktop';
 import { idOf, listTime, rowUnread, statusColor, fileToDataUrl, setAppBadge } from './mobile/shared';
 
 const initials = (t) => (t || '?').trim().substring(0, 2).toUpperCase();
@@ -15,7 +16,12 @@ const PROJECT_COLORS = { active: '#fbbf24', progress: '#38bdf8', 'in-review': '#
 
 // Phone experience for agencies: Inbox / Projects / Settings, like WhatsApp.
 // Lists run on the lightweight /api/activity feed; full threads load only for the open chat.
-export default function AgencyMobileApp({ initialProjectId = null }) {
+export default function AgencyMobileApp({ initialProjectId = null, layout = 'mobile' }) {
+  const desktop = layout === 'desktop';
+  const canPreview = useDesktop() === true;
+  const [rootTab, setRootTab] = useState(initialProjectId ? 'projects' : 'inbox');
+  const [device, setDevice] = useState('desktop');
+  const [fullscreen, setFullscreen] = useState(false);
   const [session, setSession] = useState(null);
   const [projects, setProjects] = useState(null);
   const [activity, setActivity] = useState(null);
@@ -103,7 +109,8 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const push = (next) => { history.pushState({ anx: next }, ''); setNav(next); setSheet(false); setQ(''); };
-  const root = (s) => { const next = { s }; history.replaceState({ anx: next }, ''); setNav(next); setQ(''); setFilter('all'); };
+  const root = (s) => { const next = { s }; history.replaceState({ anx: next }, ''); setNav(next); setRootTab(s); setQ(''); setFilter('all'); };
+  useEffect(() => { if (['inbox', 'projects', 'more'].includes(nav.s)) setRootTab(nav.s); }, [nav.s]);
   const back = () => history.back();
 
   // notification tap -> open that conversation
@@ -215,16 +222,17 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
 
   // ── shared chrome (plain functions, so inputs keep focus while typing) ──
   const toastEl = () => (toast ? <div className="wa-toast">{toast}</div> : null);
-  const tabbar = () => (
+  const tabBarEl = () => (
     <div className="wa-tabbar">
       {[['inbox', 'Inbox', Inbox, totalUnread], ['projects', 'Projects', FolderKanban, 0], ['more', 'Settings', Settings, 0]].map(([k, label, Icon, badge]) => (
-        <button key={k} className={nav.s === k ? 'on' : ''} onClick={() => root(k)}>
+        <button key={k} className={(desktop ? rootTab : nav.s) === k ? 'on' : ''} onClick={() => root(k)}>
           <span className="wa-tab-ic"><Icon size={22} />{badge > 0 && <i className="wa-tab-badge">{badge > 99 ? '99+' : badge}</i>}</span>
           {label}
         </button>
       ))}
     </div>
   );
+  const tabbar = () => (desktop ? null : tabBarEl());
   const searchBox = (placeholder) => (
     <div className="wa-search">
       <Search size={16} />
@@ -268,17 +276,17 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   const shell = (children) => <div style={{ '--accent': accent, '--accent-light': accentLt }}>{children}{toastEl()}</div>;
 
   // ── CHAT ──
-  if (nav.s === 'chat') {
+  const screenChat = () => {
     const rev = fulls[nav.rid];
     const row = (activity || []).find(r => r.id === nav.rid);
-    if (!rev) return shell(
+    if (!rev) return (
       <div className="wa-screen" style={{ background: bgBase }}>
         <div className="wa-head"><button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button><div className="wa-title">{row?.title || 'Loading…'}</div></div>
         <div className="wa-body"><p className="wa-empty" style={{ marginTop: '3rem' }}>Opening conversation…</p></div>
       </div>
     );
     const closed = rev.status === 'closed' || rev.status === 'resolved';
-    return shell(
+    return (
       <>
         <ChatScreen
           rev={{ ...rev, title: `${row?.projectTitle ? row.projectTitle + ' · ' : ''}${rev.title}` }}
@@ -304,7 +312,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   }
 
   // ── NEW REQUEST ──
-  if (nav.s === 'new') return shell(
+  const screenNew = () => (
     <div className="wa-screen" style={{ background: bgBase }}>
       <div className="wa-head">
         <button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button>
@@ -335,7 +343,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   );
 
   // ── NEW NOTE ──
-  if (nav.s === 'note') return shell(
+  const screenNote = () => (
     <div className="wa-screen" style={{ background: bgBase }}>
       <div className="wa-head"><button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button><div className="wa-title" style={{ flex: 1 }}>New note</div></div>
       <form className="wa-body wa-form" onSubmit={addNote}>
@@ -347,8 +355,8 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   );
 
   // ── PROJECT ──
-  if (nav.s === 'project') {
-    if (!project) return shell(
+  const screenProject = () => {
+    if (!project) return (
       <div className="wa-screen" style={{ background: bgBase }}>
         <div className="wa-head"><button className="btn-icon" onClick={() => root('projects')} aria-label="Back"><ArrowLeft size={22} /></button><div className="wa-title">Project</div></div>
         <div className="wa-body">{projects === null ? skeleton() : <p className="wa-empty" style={{ marginTop: '3rem' }}>Project not found.</p>}</div>
@@ -356,7 +364,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
     );
     const docs = project.documents || [];
     const openCount = projRows.filter(r => r.status === 'open' || r.status === 'in-progress').length;
-    return shell(
+    return (
       <div className="wa-screen" style={{ background: bgBase }}>
         <div className="wa-head">
           <button className="btn-icon" onClick={back} aria-label="Back"><ArrowLeft size={22} /></button>
@@ -419,7 +427,38 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
             </div>
           )}
 
-          {ptab === 'preview' && (
+          {ptab === 'preview' && desktop && canPreview && (
+            <div style={{ padding: '1rem' }}>
+              <div className="device-bar" style={{ borderRadius: 'var(--radius-lg)', marginBottom: '1rem', border: '1px solid var(--bg-border)' }}>
+                <div className="device-opts">
+                  {[['desktop', 'Desktop', '🖥'], ['air', 'MacBook Air', '💻'], ['pro', 'MacBook Pro', '💻'], ['ipad', 'iPad', '📱'], ['iphone', 'iPhone', '📱']].map(([id, label, icon]) => (
+                    <button key={id} className={`device-opt ${device === id ? 'active' : ''}`} style={device === id ? { background: accent } : undefined} onClick={() => setDevice(id)}><span>{icon}</span>{label}</button>
+                  ))}
+                </div>
+                <button className="btn-ghost" onClick={() => setFullscreen(true)}>Full screen</button>
+              </div>
+              <div className="preview-wrap">
+                <div className="preview-toolbar">
+                  <div className="toolbar-dots"><div className="dot dot-r" /><div className="dot dot-y" /><div className="dot dot-g" /></div>
+                  <div className="toolbar-url">{project.status?.toLowerCase() === 'delivered' ? (project.previewUrl || 'No preview URL set') : 'Preview Mode - Link Hidden'}</div>
+                </div>
+                <div className={`iframe-area frame-${device}`}>
+                  <iframe src={project.previewUrl || 'about:blank'} style={{ width: '100%', height: '100%', border: 'none' }} title="Preview" />
+                </div>
+              </div>
+              {fullscreen && (
+                <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '0.75rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-surface)', borderBottom: '1px solid var(--bg-border)' }}>
+                    <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>{project.title} — Full Preview</span>
+                    <button className="btn-ghost" onClick={() => setFullscreen(false)}>✕ Close</button>
+                  </div>
+                  <iframe src={project.previewUrl || 'about:blank'} style={{ flex: 1, border: 'none', width: '100%' }} title="Fullscreen Preview" />
+                </div>
+              )}
+            </div>
+          )}
+
+          {ptab === 'preview' && !(desktop && canPreview) && (
             <div style={{ padding: '1rem' }}>
               <PreviewLock />
               {project.description && <p style={{ marginTop: '1rem', fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{project.description}</p>}
@@ -436,9 +475,9 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   }
 
   // ── PROJECTS TAB ──
-  if (nav.s === 'projects') {
+  const screenProjects = () => {
     const list = (projects || []).filter(p => (filter === 'all' || p.status === filter) && match(p.title, p.clientCode, p.description));
-    return shell(
+    return (
       <div className="wa-screen" style={{ background: bgBase }}>
         <div className="wa-head wa-home-head"><div className="wa-title" style={{ flex: 1, fontSize: '1.25rem' }}>Projects</div></div>
         {searchBox('Search projects')}
@@ -473,7 +512,7 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
   }
 
   // ── SETTINGS TAB ──
-  if (nav.s === 'more') return shell(
+  const screenMore = () => (
     <div className="wa-screen" style={{ background: bgBase }}>
       <div className="wa-head wa-home-head"><div className="wa-title" style={{ fontSize: '1.25rem' }}>Settings</div></div>
       <div className="wa-body wa-form">
@@ -501,14 +540,15 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
     </div>
   );
 
-  // ── INBOX (default) ──
+  // ── INBOX ──
+  const screenInbox = () => {
   const list = (activity || []).filter(r => {
     if (filter === 'unread' && !rowUnread(r, myType)) return false;
     if (filter === 'open' && !(r.status === 'open' || r.status === 'in-progress')) return false;
     if (filter === 'resolved' && !(r.status === 'resolved' || r.status === 'closed')) return false;
     return match(r.projectTitle, r.title, r.lastMessage, r.lastName);
   });
-  return shell(
+  return (
     <div className="wa-screen" style={{ background: bgBase }}>
       <div className="wa-head wa-home-head">
         <div className="wa-avatar" style={{ background: `linear-gradient(135deg, ${accent}, ${branding.accentSecondary || accent})`, color: '#fff', fontSize: '0.8rem' }}>
@@ -535,6 +575,36 @@ export default function AgencyMobileApp({ initialProjectId = null }) {
         {list.map(r => convRow(r, true))}
       </div>
       {tabbar()}
+    </div>
+  );
+  };
+
+  const DETAIL = { chat: screenChat, new: screenNew, note: screenNote, project: screenProject };
+  const ROOT = { inbox: screenInbox, projects: screenProjects, more: screenMore };
+
+  if (!desktop) return shell((DETAIL[nav.s] || ROOT[nav.s] || screenInbox)());
+
+  // two-pane layout: side rail | list | conversation or project
+  const rootFn = ROOT[rootTab] || screenInbox;
+  const detailFn = DETAIL[nav.s];
+  return shell(
+    <div className="wa-desktop">
+      <nav className="wa-rail">
+        <div className="wa-rail-logo" style={{ background: `linear-gradient(135deg, ${accent}, ${branding.accentSecondary || accent})` }}>{branding.logoText || initials(orgName)}</div>
+        {tabBarEl()}
+        <div style={{ flex: 1 }} />
+        <button className="wa-rail-out" onClick={logout} aria-label="Logout" title="Logout"><LogOut size={20} /></button>
+      </nav>
+      <section className="wa-left">{rootFn()}</section>
+      <section className="wa-right">
+        {detailFn ? detailFn() : (
+          <div className="wa-placeholder">
+            <div className="wa-blank-icon" style={{ background: accentLt, color: accent }}><MessageSquarePlus size={30} /></div>
+            <h3>{orgName}</h3>
+            <p>Select a conversation or project to get started.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

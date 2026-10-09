@@ -1231,3 +1231,34 @@ html, body { overscroll-behavior-y: none; -webkit-tap-highlight-color: transpare
 .wa-skel-row b:first-child { width: 55%; }
 .wa-skel-row b:last-child { width: 85%; }
 .wa-skel-row i, .wa-skel-row b { animation: glowPulse 1.4s ease-in-out infinite; }
+
+/* ── DESKTOP TWO-PANE APP (agency) ───────────────────────────────── */
+.wa-desktop { position: fixed; inset: 0; display: flex; background: var(--bg-base); }
+.wa-rail {
+  width: 84px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+  padding: 1rem 0; gap: 0.5rem; background: #0d0b08; border-right: 1px solid var(--bg-border);
+}
+.wa-rail-logo {
+  width: 44px; height: 44px; border-radius: 12px; margin-bottom: 0.75rem; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-weight: 800; font-size: 0.85rem; color: #fff;
+}
+.wa-rail .wa-tabbar { flex-direction: column; background: none; border: none; padding: 0; width: 100%; gap: 0.25rem; }
+.wa-rail .wa-tabbar button { padding: 0.65rem 0; border-radius: 12px; margin: 0 0.5rem; }
+.wa-rail .wa-tabbar button:hover { background: rgba(255,255,255,0.05); }
+.wa-rail .wa-tabbar button.on { background: var(--accent-light); }
+.wa-rail-out { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.wa-rail-out:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
+.wa-left { position: relative; width: 400px; flex-shrink: 0; border-right: 1px solid var(--bg-border); }
+.wa-right { position: relative; flex: 1; min-width: 0; background: var(--bg-surface); }
+.wa-desktop .wa-screen { position: absolute; inset: 0; height: auto; animation: none; }
+.wa-desktop .wa-home-head { padding-top: 0.75rem; }
+.wa-desktop .wa-sheet { max-width: 420px; margin: auto auto 1.5rem; border-radius: 20px; }
+.wa-desktop .wa-sheet-bg { align-items: flex-end; }
+.wa-desktop .wa-right .wa-form { width: 100%; max-width: 640px; margin: 0 auto; }
+.wa-desktop .wa-right .wa-bubble { max-width: 68%; }
+.wa-desktop .wa-fab { right: 1.5rem; }
+.wa-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.6rem; text-align: center; padding: 2rem; }
+.wa-placeholder h3 { font-family: var(--font-head); font-size: 1.2rem; }
+.wa-placeholder p { color: var(--text-muted); font-size: 0.9rem; }
+.wa-desktop .wa-placeholder { background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 18px 18px; }

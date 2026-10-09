@@ -102,6 +102,18 @@ export default function ChatScreen({ rev, myType, accent, accentLt, bgBase, onBa
                 placeholder="Message"
                 value={text}
                 onChange={e => setText(e.target.value)}
+                onPaste={async e => {
+                  const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+                  const f = item?.getAsFile();
+                  if (f) { e.preventDefault(); setImg(await fileToDataUrl(f)); }
+                }}
+                onKeyDown={e => {
+                  // laptops: Enter sends, Shift+Enter adds a line; phones keep Enter as a new line
+                  if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
                 onInput={e => { e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
               />
               <button className="wa-send" style={{ background: accent }} disabled={busy || (!text.trim() && !img)} onClick={submit} aria-label="Send"><Send size={20} /></button>
